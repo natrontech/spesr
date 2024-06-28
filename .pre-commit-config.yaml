@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: sk-check
+        name: SvelteKit Check
+        entry: ./scripts/sk-check.sh
+        language: script
+        pass_filenames: false
+        stages: [commit]

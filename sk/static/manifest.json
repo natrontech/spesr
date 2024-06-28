@@ -1,0 +1,20 @@
+{
+  "name": "Spesr",
+  "short_name": "Spesr",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fff",
+  "theme_color": "#fff",
+  "icons": [
+    {
+      "src": "/icons/120.png",
+      "sizes": "120x120",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/180.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}
