@@ -9,8 +9,6 @@ import (
 	"spesr/pkg/controller"
 	"spesr/pkg/env"
 
-	_ "spesr/docs" // import your generated docs
-
 	"github.com/labstack/echo/v5"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
