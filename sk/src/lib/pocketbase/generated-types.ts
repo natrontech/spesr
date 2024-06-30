@@ -56,6 +56,7 @@ export type ExpensesRecord = {
 };
 
 export type UsersRecord = {
+  admin?: boolean;
   avatar?: string;
   name?: string;
 };
