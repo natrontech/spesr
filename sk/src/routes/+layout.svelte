@@ -1,6 +1,5 @@
 <script context="module">
   import "../app.css";
-  import "../grid.css";
   import { beforeNavigate } from "$app/navigation";
   import { metadata } from "$lib/app/stores";
   import { site } from "$lib/config";

@@ -5,10 +5,9 @@
   import { UserNav } from "$lib/components/dashboard";
   import { mode, resetMode, setMode } from "mode-watcher";
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
-  import * as Drawer from "$lib/components/ui/drawer";
   import { Button } from "$lib/components/ui/button/index.js";
   import { Checkbox } from "$lib/components/ui/checkbox/index.js";
-  import { CalendarIcon, Moon, Plus, Sun } from "lucide-svelte";
+  import { CalendarIcon, Camera, Moon, Plus, Sun } from "lucide-svelte";
   import { Input } from "$lib/components/ui/input/index.js";
   import { Label } from "$lib/components/ui/label/index.js";
   import * as Popover from "$lib/components/ui/popover/index.js";
@@ -23,6 +22,7 @@
   import { client } from "$lib/pocketbase";
   import { toast } from "svelte-sonner";
   import { updateDataStores, UpdateFilterEnum } from "$lib/stores/data/load";
+  import * as Dialog from "$lib/components/ui/dialog";
 
   let open = false;
   let dateOpen = false;
@@ -181,22 +181,23 @@
   </div>
 </div>
 
-<Drawer.Root bind:open>
+<Dialog.Root bind:open>
   <div class="fixed bottom-6 right-1/2 translate-x-1/2">
-    <Drawer.Trigger asChild let:builder>
+    <Dialog.Trigger asChild let:builder>
       <Button variant="default" size="lg" builders={[builder]}>
         <Plus class="h-6 w-6" />
         Add Expense
       </Button>
-    </Drawer.Trigger>
+    </Dialog.Trigger>
   </div>
-  <Drawer.Content>
-    <Drawer.Header class="text-left">
-      <Drawer.Title>Add Expense</Drawer.Title>
-      <Drawer.Description>Add a new expense to your project</Drawer.Description>
-    </Drawer.Header>
+  <Dialog.Content>
+    <Dialog.Header class="text-left">
+      <Dialog.Title>Add Expense</Dialog.Title>
+      <Dialog.Description>Add a new expense to your project</Dialog.Description>
+    </Dialog.Header>
+
     <form class="grid items-start gap-4 px-4" on:submit|preventDefault={handleSubmit}>
-      <Popover.Root>
+      <Popover.Root bind:open={dateOpen} let:ids>
         <Popover.Trigger asChild let:builder>
           <Button
             variant="outline"
@@ -210,7 +211,7 @@
             {dateValue ? df.format(dateValue.toDate(getLocalTimeZone())) : "Pick a date"}
           </Button>
         </Popover.Trigger>
-        <Popover.Content class="w-auto p-0" align="start">
+        <Popover.Content class="w-auto p-0" align="center">
           <Calendar bind:value={dateValue} />
         </Popover.Content>
       </Popover.Root>
@@ -298,19 +299,25 @@
         <Label for="description">Description</Label>
         <Input id="description" bind:value={description} />
       </div>
-      <div class="grid w-full max-w-sm items-center gap-1.5">
+      <div class="grid w-full items-center gap-1.5">
         <Label for="picture">Picture</Label>
-        <Input
-          id="picture"
-          type="file"
-          bind:value={picture}
-          on:change={(event) => {
-            if (event.target) {
-              // @ts-expect-error - event.target.files is a FileList
-              pictureFile = event.target.files[0];
-            }
-          }}
-        />
+        <div class="file-input-wrapper">
+          <input
+            id="picture"
+            type="file"
+            class="file-input"
+            bind:value={picture}
+            on:change={(event) => {
+              if (event.target) {
+                // @ts-expect-error - event.target.files is a FileList
+                pictureFile = event.target.files[0];
+              }
+            }}
+          />
+          <label for="picture" class="file-input-button">
+            <Camera class="h-6 w-6 mr-2" /> Upload Picture
+          </label>
+        </div>
       </div>
       <div class="grid gap-2">
         <Label for="amount">Amount (KM / CHF)</Label>
@@ -331,11 +338,30 @@
         </div>
       </div>
       <Button type="submit" class="w-full">Add Expense</Button>
-    </form>
-    <Drawer.Footer class="pt-2">
-      <Drawer.Close asChild let:builder>
+      <Dialog.Close asChild let:builder>
         <Button variant="outline" builders={[builder]}>Cancel</Button>
-      </Drawer.Close>
-    </Drawer.Footer>
-  </Drawer.Content>
-</Drawer.Root>
+      </Dialog.Close>
+    </form>
+  </Dialog.Content>
+</Dialog.Root>
+
+<style>
+  .file-input-wrapper {
+    position: relative;
+    display: inline-block;
+  }
+  .file-input {
+    display: none; /* Hide the actual file input */
+  }
+  .file-input-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+</style>
