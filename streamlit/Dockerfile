@@ -4,19 +4,25 @@ FROM python:3.12-slim
 # Set working directory
 WORKDIR /app
 
-# Install necessary system dependencies
+# Install necessary system dependencies and Tesseract
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     git \
+    tesseract-ocr \
+    tesseract-ocr-deu \
+    libtesseract-dev \
+    libheif-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy application files
 COPY . .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt \
-    && apt-get purge -y build-essential git \
+# Install Python dependencies separately to optimize layer caching and memory usage
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Clean up unnecessary files and caches
+RUN apt-get purge -y build-essential git \
     && apt-get autoremove -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
