@@ -321,7 +321,7 @@
       </div>
       <div class="grid gap-2">
         <Label for="amount">Amount (KM / CHF)</Label>
-        <Input id="amount" type="number" bind:value={amount} />
+        <Input id="amount" type="number" step="0.01" bind:value={amount} />
       </div>
       <div class="items-top flex space-x-2">
         <Checkbox id="terms1" bind:checked={companyCreditCard} />
