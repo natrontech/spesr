@@ -21,6 +21,12 @@ from PIL import Image, UnidentifiedImageError
 
 import streamlit as st
 
+st.set_page_config(
+    page_title="CSV to Excel Processor with Embedded Images and OCR",
+    initial_sidebar_state="expanded",
+    page_icon="📄",
+)
+
 # Set up Tesseract environment
 TESSDATA_PREFIX = "./tessdata/"
 if not os.path.exists(TESSDATA_PREFIX):
@@ -165,7 +171,7 @@ def extract_receipt_info(extracted_text):
     for _ in range(3):  # Retry up to 3 times
         try:
             completion = client.chat.completions.create(
-                model="gpt-4-turbo",
+                model="gpt-4o",
                 messages=[
                     {
                         "role": "system",
