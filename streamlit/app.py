@@ -41,7 +41,7 @@ client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 @st.cache_resource
 def load_ocr_reader():
-    return easyocr.Reader(["de"])  # Initialize the OCR reader for German
+    return easyocr.Reader(["de"], gpu=True)  # Initialize the OCR reader for German
 
 
 def denoise(image):

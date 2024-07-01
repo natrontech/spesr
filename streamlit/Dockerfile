@@ -1,11 +1,13 @@
-# Use a smaller base image with slim variant
-FROM python:3.12-slim
+# Use an NVIDIA CUDA base image with Python 3.12 support
+FROM nvidia/cuda:12.5.0-runtime-ubuntu22.04
 
 # Set working directory
 WORKDIR /app
 
 # Install necessary system dependencies and Tesseract
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-pip \
+    python3-dev \
     build-essential \
     curl \
     git \
@@ -13,13 +15,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr-deu \
     libtesseract-dev \
     libheif-dev \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy application files
 COPY . .
 
 # Install Python dependencies separately to optimize layer caching and memory usage
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip3 install --upgrade pip && pip3 install --no-cache-dir -r requirements.txt
 
 # Clean up unnecessary files and caches
 RUN apt-get purge -y build-essential git \
