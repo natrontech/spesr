@@ -2,6 +2,7 @@ import json
 import locale
 import os
 import re
+import string
 import zipfile
 from datetime import datetime
 from io import BytesIO
@@ -201,6 +202,17 @@ def extract_receipt_info(extracted_text):
     )
 
 
+# Function to remove illegal characters for Excel
+def clean_text(text):
+    # Define allowed printable characters
+    printable = set(string.printable)
+    # Remove non-printable characters
+    cleaned_text = "".join(filter(lambda x: x in printable, text))
+    # Remove any remaining control characters or illegal Excel characters
+    cleaned_text = re.sub(r"[\x00-\x1F\x7F-\x9F]", "", cleaned_text)
+    return cleaned_text
+
+
 def process_file(uploaded_file):
     reader = load_ocr_reader()
     df = pd.read_csv(uploaded_file)
@@ -255,19 +267,25 @@ def process_file(uploaded_file):
                 extracted_info.append(
                     {
                         "id": row["id"],
-                        "extracted_text": combined_text,
+                        "extracted_text": clean_text(combined_text),
                         "extracted_amount": parsed_info["extracted_amount"],
-                        "extracted_seller": parsed_info["extracted_seller"],
-                        "extracted_card_info": parsed_info["extracted_card_info"],
+                        "extracted_seller": clean_text(parsed_info["extracted_seller"]),
+                        "extracted_card_info": clean_text(
+                            parsed_info["extracted_card_info"]
+                        ),
                         "extracted_date": format_date(parsed_info["extracted_date"]),
                     }
                 )
 
-                df.at[index, "extracted_text"] = combined_text
+                df.at[index, "extracted_text"] = clean_text(combined_text)
                 df.at[index, "picture"] = original_img_filename
                 df.at[index, "extracted_amount"] = parsed_info["extracted_amount"]
-                df.at[index, "extracted_seller"] = parsed_info["extracted_seller"]
-                df.at[index, "extracted_card_info"] = parsed_info["extracted_card_info"]
+                df.at[index, "extracted_seller"] = clean_text(
+                    parsed_info["extracted_seller"]
+                )
+                df.at[index, "extracted_card_info"] = clean_text(
+                    parsed_info["extracted_card_info"]
+                )
                 df.at[index, "extracted_date"] = format_date(
                     parsed_info["extracted_date"]
                 )
