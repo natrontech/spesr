@@ -95,13 +95,10 @@
       return;
     }
 
-    if (!pictureFile) {
-      toast.error("Please upload a picture.");
-      return;
-    }
-
     let formData = new FormData();
-    formData.append("picture", pictureFile);
+    if (pictureFile) {
+      formData.append("picture", pictureFile);
+    }
     formData.append("datetime", dateValue.toDate(getLocalTimeZone()).toISOString());
     formData.append("customer", customerValue);
     formData.append("expense_type", expenseTypeValue);
