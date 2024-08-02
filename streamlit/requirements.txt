@@ -13,6 +13,7 @@ cachetools==5.3.3
 catalogue==2.0.10
 certifi==2024.6.2
 cffi==1.16.0
+chardet==5.2.0
 charset-normalizer==3.3.2
 click==8.1.7
 cloudpathlib==0.18.1
@@ -78,6 +79,7 @@ paddleocr==2.7.3
 paddlepaddle==2.6.1
 pandas==2.2.2
 pdf2docx==0.5.8
+pdf2image==1.17.0
 pillow==10.3.0
 pillow_heif==0.16.0
 premailer==3.10.0
@@ -96,6 +98,7 @@ pyheif==0.7.1
 PyMuPDF==1.24.7
 PyMuPDFb==1.24.6
 pyparsing==3.1.2
+PyPDF2==3.0.1
 pyspellchecker==0.8.1
 pytesseract==0.3.10
 python-bidi==0.4.2
@@ -107,6 +110,7 @@ rapidfuzz==3.9.3
 rarfile==4.2
 referencing==0.35.1
 regex==2024.5.15
+reportlab==4.2.2
 requests==2.32.3
 rich==13.7.1
 rpds-py==0.18.1
