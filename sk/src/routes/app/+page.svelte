@@ -42,6 +42,7 @@
     }),
     // @ts-expect-error - expense type is not null
     type: expense.expand.expense_type.name,
+    description: expense.description,
     amount: expense.amount,
     created: new Date(expense.created).toLocaleDateString("de-CH", {
       year: "numeric",
