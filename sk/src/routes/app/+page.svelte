@@ -106,14 +106,47 @@
       });
   }
 
-  function downloadCSV() {
-    const filteredExpenses = tempExpenses.filter((expense) => {
-      const date = new Date(expense.date);
+  function downloadCSV(): void {
+    console.log(selectedMonth, selectedYear);
+
+    // Print the expenses for the selected month and year
+    console.log("Expenses for", selectedYear, selectedMonth);
+
+    // Define a mapping for German month abbreviations to full English equivalents
+    const germanToEnglishMonths: { [key: string]: string } = {
+      "Jan.": "Jan",
+      "Feb.": "Feb",
+      März: "Mar",
+      "Apr.": "Apr",
+      Mai: "May",
+      Juni: "Jun",
+      Juli: "Jul",
+      "Aug.": "Aug",
+      "Sept.": "Sep",
+      "Okt.": "Oct",
+      "Nov.": "Nov",
+      "Dez.": "Dec"
+    };
+
+    // Replace German month names with English equivalents before parsing
+    const normalizedDates = tempExpenses.map((expense: { date: string }) => {
+      let dateStr = expense.date;
+      Object.keys(germanToEnglishMonths).forEach((germanMonth) => {
+        dateStr = dateStr.replace(germanMonth, germanToEnglishMonths[germanMonth]);
+      });
+      return new Date(dateStr);
+    });
+
+    // Filter expenses for the selected month and year
+    const filteredExpenses = tempExpenses.filter((expense: { date: string }, index: number) => {
+      const date = normalizedDates[index];
       return (
         date.getMonth() + 1 === parseInt(selectedMonth) &&
         date.getFullYear() === parseInt(selectedYear)
       );
     });
+
+    // Convert the filtered expenses to CSV
     const csv = Papa.unparse(filteredExpenses);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     saveAs(blob, `expenses_${selectedYear}-${selectedMonth}.csv`);
