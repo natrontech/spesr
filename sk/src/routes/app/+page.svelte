@@ -39,14 +39,26 @@
     customer_id: string;
   }
 
-  type SortableField = "date" | "amount" | "customer" | "type";
+  type SortableField = "date" | "amount" | "customer" | "type" | "description" | "company_credit_card" | "user";
 
   let tempExpenses: Expense[] = [];
   let searchQuery = "";
-  let sortField: SortableField | null = null;
+  let sortField: SortableField | null = "date";  // Default sort by date
   let sortDirection: "asc" | "desc" = "desc";
 
-  const sortFields: SortableField[] = ["date", "amount", "customer", "type"];
+  const sortFields: SortableField[] = ["customer", "date", "type", "description", "amount", "company_credit_card"];
+  if (client.authStore.model?.admin) {
+    sortFields.push("user");
+  }
+
+  function handleSort(field: SortableField) {
+    if (sortField === field) {
+      sortDirection = sortDirection === "asc" ? "desc" : "asc";
+    } else {
+      sortField = field;
+      sortDirection = "desc";
+    }
+  }
 
   $: tempExpenses = $expenses.map((expense) => ({
     collectionId: expense.collectionId,
@@ -87,59 +99,39 @@
         expense.type.toLowerCase().includes(query) ||
         expense.description?.toLowerCase().includes(query) ||
         expense.amount.toString().includes(query) ||
-        expense.date.toLowerCase().includes(query)
+        expense.date.toLowerCase().includes(query) ||
+        (expense.company_credit_card ? "company card" : "").includes(query) ||
+        expense.user?.toLowerCase().includes(query)
       );
     })
     .sort((a, b) => {
       if (!sortField) return 0;
-      const aVal = a[sortField];
-      const bVal = b[sortField];
+      
       const direction = sortDirection === "asc" ? 1 : -1;
-      if (typeof aVal === "string" && typeof bVal === "string") {
-        return aVal.localeCompare(bVal) * direction;
+      
+      // Handle special cases first
+      if (sortField === "amount") {
+        return (a.amount - b.amount) * direction;
       }
-      if (typeof aVal === "number" && typeof bVal === "number") {
-        return (aVal - bVal) * direction;
+      if (sortField === "company_credit_card") {
+        return (Number(a.company_credit_card) - Number(b.company_credit_card)) * direction;
       }
-      return 0;
+      if (sortField === "date") {
+        return (new Date(a.datetime).getTime() - new Date(b.datetime).getTime()) * direction;
+      }
+      
+      // Handle string comparisons
+      const aVal = a[sortField]?.toLowerCase() ?? "";
+      const bVal = b[sortField]?.toLowerCase() ?? "";
+      return aVal.localeCompare(bVal) * direction;
     });
 
-  function handleSort(field: SortableField) {
-    if (sortField === field) {
-      sortDirection = sortDirection === "asc" ? "desc" : "asc";
-    } else {
-      sortField = field;
-      sortDirection = "asc";
-    }
-  }
-
-  let selectedRow: Expense | null = null;
-  let editingExpense: Expense | null = null;
-  let editDialogOpen = false;
-
-  // Get current date
-  const currentDate = new Date();
-
-  // Calculate last month and current year
-  let lastMonth = currentDate.getMonth();
-  let currentYear = currentDate.getFullYear();
-
-  if (lastMonth === 0) {
-    lastMonth = 12;
-    currentYear -= 1;
-  }
-
-  let selectedMonth: string = lastMonth.toString().padStart(2, "0");
-  let selectedYear: string = currentYear.toString();
-
-  const drawerOpen = writable(false);
-
-  async function handleDeleteClick(row: Expense) {
+  function handleDeleteClick(row: Expense) {
     selectedRow = row;
 
     if (!selectedRow) return;
 
-    await client
+    client
       .collection("expenses")
       .delete(selectedRow.id)
       .then(() => {
@@ -227,6 +219,27 @@
     downloadCSV();
     drawerOpen.set(false);
   }
+
+  let selectedRow: Expense | null = null;
+  let editingExpense: Expense | null = null;
+  let editDialogOpen = false;
+
+  // Get current date
+  const currentDate = new Date();
+
+  // Calculate last month and current year
+  let lastMonth = currentDate.getMonth();
+  let currentYear = currentDate.getFullYear();
+
+  if (lastMonth === 0) {
+    lastMonth = 12;
+    currentYear -= 1;
+  }
+
+  let selectedMonth: string = lastMonth.toString().padStart(2, "0");
+  let selectedYear: string = currentYear.toString();
+
+  const drawerOpen = writable(false);
 </script>
 
 <div class="container mx-auto py-6 px-4">
@@ -234,6 +247,7 @@
     <div class="relative w-full sm:w-auto sm:min-w-[300px]">
       <Search class="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
       <Input
+        type="text"
         placeholder="Search expenses..."
         class="pl-8"
         bind:value={searchQuery}
@@ -244,57 +258,33 @@
     {/if}
   </div>
 
-  <!-- Desktop View (hidden on mobile) -->
+  <!-- Desktop Table View -->
   <div class="hidden md:block rounded-md border overflow-x-auto">
     <Table.Root>
       <Table.Header>
         <Table.Row>
-          <Table.Head class="min-w-[150px]">
-            <button class="flex items-center gap-1" on:click={() => handleSort("customer")}>
-              Customer
-              <ArrowUpDown class="h-4 w-4" />
-            </button>
-          </Table.Head>
-          <Table.Head class="min-w-[120px]">
-            <button class="flex items-center gap-1" on:click={() => handleSort("date")}>
-              Date
-              <ArrowUpDown class="h-4 w-4" />
-            </button>
-          </Table.Head>
-          <Table.Head class="min-w-[120px]">
-            <button class="flex items-center gap-1" on:click={() => handleSort("type")}>
-              Type
-              <ArrowUpDown class="h-4 w-4" />
-            </button>
-          </Table.Head>
-          <Table.Head class="min-w-[200px]">
-            <button class="flex items-center gap-1" on:click={() => handleSort("description")}>
-              Description
-              <ArrowUpDown class="h-4 w-4" />
-            </button>
-          </Table.Head>
-          <Table.Head class="text-right min-w-[100px]">
-            <button class="flex items-center gap-1 ml-auto" on:click={() => handleSort("amount")}>
-              Amount
-              <ArrowUpDown class="h-4 w-4" />
-            </button>
-          </Table.Head>
-          <Table.Head class="min-w-[100px]">Receipt</Table.Head>
-          <Table.Head class="min-w-[120px]">
-            <button class="flex items-center gap-1" on:click={() => handleSort("company_credit_card")}>
-              Company Card
-              <ArrowUpDown class="h-4 w-4" />
-            </button>
-          </Table.Head>
-          {#if client.authStore.model && client.authStore.model.admin}
-            <Table.Head class="min-w-[120px]">
-              <button class="flex items-center gap-1" on:click={() => handleSort("user")}>
-                User
-                <ArrowUpDown class="h-4 w-4" />
-              </button>
+          {#each sortFields as field}
+            <Table.Head 
+              class="min-w-[150px] cursor-pointer select-none hover:bg-muted/50"
+              on:click={() => handleSort(field)}
+            >
+              <div class="flex items-center gap-1">
+                <span class="capitalize">{field.replace(/_/g, ' ')}</span>
+                {#if sortField === field}
+                  <span class="text-primary">
+                    {#if sortDirection === 'asc'}
+                      <ChevronUp class="h-4 w-4" />
+                    {:else}
+                      <ChevronDown class="h-4 w-4" />
+                    {/if}
+                  </span>
+                {:else}
+                  <ArrowUpDown class="h-4 w-4 opacity-0 group-hover:opacity-100" />
+                {/if}
+              </div>
             </Table.Head>
-          {/if}
-          <Table.Head class="text-right min-w-[120px]">Actions</Table.Head>
+          {/each}
+          <Table.Head class="w-[150px]">Actions</Table.Head>
         </Table.Row>
       </Table.Header>
       <Table.Body>
@@ -306,44 +296,45 @@
             <Table.Cell>{expense.description}</Table.Cell>
             <Table.Cell class="text-right">{expense.amount.toFixed(2)} CHF</Table.Cell>
             <Table.Cell>
-              {#if expense.picture}
-                <Lightbox>
-                  <img width="50" height="50" src={expense.picture} alt="Receipt" class="rounded-sm object-cover" />
-                </Lightbox>
-              {:else}
-                -
+              {#if expense.company_credit_card}
+                <span class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 text-xs px-2 py-0.5 rounded">Company Card</span>
               {/if}
             </Table.Cell>
-            <Table.Cell>
-              {expense.company_credit_card ? "Yes" : "No"}
-            </Table.Cell>
-            {#if client.authStore.model && client.authStore.model.admin}
+            {#if client.authStore.model?.admin}
               <Table.Cell>{expense.user}</Table.Cell>
             {/if}
             <Table.Cell class="text-right">
               <div class="flex justify-end gap-2">
-                <Button variant="outline" size="sm" on:click={() => handleEditClick(expense)}>
-                  Edit
+                {#if expense.picture}
+                  <Lightbox>
+                    <div slot="thumbnail">
+                      <Button variant="ghost" size="icon">
+                        <Camera class="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div>
+                      <img
+                        src={expense.picture}
+                        alt="Expense receipt"
+                        class="max-h-[80vh]"
+                      />
+                    </div>
+                  </Lightbox>
+                {/if}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  on:click={() => handleEditClick(expense)}
+                >
+                  <Edit2 class="h-4 w-4" />
                 </Button>
-                <AlertDialog.Root>
-                  <AlertDialog.Trigger asChild let:builder>
-                    <Button builders={[builder]} variant="destructive" size="sm">Delete</Button>
-                  </AlertDialog.Trigger>
-                  <AlertDialog.Content>
-                    <AlertDialog.Header>
-                      <AlertDialog.Title>Are you absolutely sure?</AlertDialog.Title>
-                      <AlertDialog.Description>
-                        This action cannot be undone. This will permanently delete the expense.
-                      </AlertDialog.Description>
-                    </AlertDialog.Header>
-                    <AlertDialog.Footer>
-                      <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-                      <AlertDialog.Action on:click={() => handleDeleteClick(expense)}>
-                        Continue
-                      </AlertDialog.Action>
-                    </AlertDialog.Footer>
-                  </AlertDialog.Content>
-                </AlertDialog.Root>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  on:click={() => handleDeleteClick(expense)}
+                >
+                  <Trash2 class="h-4 w-4" />
+                </Button>
               </div>
             </Table.Cell>
           </Table.Row>
@@ -352,7 +343,7 @@
     </Table.Root>
   </div>
 
-  <!-- Mobile View (hidden on desktop) -->
+  <!-- Mobile Card View -->
   <div class="block md:hidden space-y-4">
     {#each sortedAndFilteredExpenses as expense}
       <Card class="p-4">
@@ -368,6 +359,27 @@
           </div>
         </div>
         
+        {#if expense.picture}
+          <div class="mb-3 w-full">
+            <Lightbox>
+              <div slot="thumbnail">
+                <img
+                  src={expense.picture}
+                  alt="Expense receipt"
+                  class="w-full h-20 object-cover rounded-lg"
+                />
+              </div>
+              <div>
+                <img
+                  src={expense.picture}
+                  alt="Expense receipt"
+                  class="max-h-[80vh]"
+                />
+              </div>
+            </Lightbox>
+          </div>
+        {/if}
+
         <div class="grid grid-cols-2 gap-2 text-sm mb-3">
           <div class="flex items-center gap-1 text-muted-foreground">
             <Calendar class="h-4 w-4" />
@@ -384,77 +396,28 @@
           </p>
         {/if}
 
-        {#if expense.picture}
-          <div class="mb-3">
-            <Lightbox>
-              <img src={expense.picture} alt="Receipt" class="rounded-md w-full h-32 object-cover" />
-            </Lightbox>
-          </div>
-        {/if}
-
-        {#if client.authStore.model && client.authStore.model.admin}
-          <div class="text-sm text-muted-foreground mb-3">
-            Added by {expense.user}
-          </div>
-        {/if}
-
-        <div class="flex gap-2 justify-end">
-          <Button variant="outline" size="sm" class="w-full" on:click={() => handleEditClick(expense)}>
-            <Edit2 class="h-4 w-4 mr-2" />
-            Edit
+        <div class="flex justify-end gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            on:click={() => handleEditClick(expense)}
+          >
+            <Edit2 class="h-4 w-4" />
           </Button>
-          <AlertDialog.Root>
-            <AlertDialog.Trigger asChild let:builder>
-              <Button builders={[builder]} variant="destructive" size="sm" class="w-full">
-                <Trash2 class="h-4 w-4 mr-2" />
-                Delete
-              </Button>
-            </AlertDialog.Trigger>
-            <AlertDialog.Content>
-              <AlertDialog.Header>
-                <AlertDialog.Title>Are you absolutely sure?</AlertDialog.Title>
-                <AlertDialog.Description>
-                  This action cannot be undone. This will permanently delete the expense.
-                </AlertDialog.Description>
-              </AlertDialog.Header>
-              <AlertDialog.Footer>
-                <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-                <AlertDialog.Action on:click={() => handleDeleteClick(expense)}>
-                  Continue
-                </AlertDialog.Action>
-              </AlertDialog.Footer>
-            </AlertDialog.Content>
-          </AlertDialog.Root>
+          <Button
+            variant="ghost"
+            size="icon"
+            on:click={() => handleDeleteClick(expense)}
+          >
+            <Trash2 class="h-4 w-4" />
+          </Button>
         </div>
       </Card>
     {/each}
   </div>
-
-  <!-- Mobile Sort Controls -->
-  <div class="block md:hidden fixed bottom-20 right-4 z-10">
-    <div class="bg-background rounded-lg shadow-lg border p-4">
-      <div class="text-sm font-medium mb-2">Sort by</div>
-      <div class="space-y-2">
-        {#each sortFields as field}
-          <button
-            class="flex items-center justify-between w-full px-2 py-1 rounded hover:bg-muted"
-            on:click={() => handleSort(field)}
-          >
-            <span class="capitalize">{field}</span>
-            {#if sortField === field}
-              {#if sortDirection === "asc"}
-                <ChevronUp class="h-4 w-4" />
-              {:else}
-                <ChevronDown class="h-4 w-4" />
-              {/if}
-            {/if}
-          </button>
-        {/each}
-      </div>
-    </div>
-  </div>
 </div>
 
+<!-- Dialogs and Drawers -->
 <Dialog.Root bind:open={editDialogOpen}>
   <Dialog.Content>
     <Dialog.Header>
