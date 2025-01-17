@@ -43,7 +43,7 @@
 
   let tempExpenses: Expense[] = [];
   let searchQuery = "";
-  let sortField: SortableField | null = "date";  // Default sort by date
+  let sortField: SortableField = "date";  // Changed from null to "date"
   let sortDirection: "asc" | "desc" = "desc";
 
   const sortFields: SortableField[] = ["customer", "date", "type", "description", "amount", "company_credit_card"];
@@ -53,8 +53,10 @@
 
   function handleSort(field: SortableField) {
     if (sortField === field) {
+      // If clicking the same field, toggle direction
       sortDirection = sortDirection === "asc" ? "desc" : "asc";
     } else {
+      // If clicking a new field, set it as sort field and default to desc
       sortField = field;
       sortDirection = "desc";
     }
@@ -109,21 +111,24 @@
       
       const direction = sortDirection === "asc" ? 1 : -1;
       
-      // Handle special cases first
-      if (sortField === "amount") {
-        return (a.amount - b.amount) * direction;
+      switch (sortField) {
+        case "amount":
+          return (a.amount - b.amount) * direction;
+        case "company_credit_card":
+          return (Number(a.company_credit_card) - Number(b.company_credit_card)) * direction;
+        case "date":
+          return (new Date(a.datetime).getTime() - new Date(b.datetime).getTime()) * direction;
+        case "customer":
+          return a.customer.localeCompare(b.customer) * direction;
+        case "type":
+          return a.type.localeCompare(b.type) * direction;
+        case "description":
+          return (a.description || "").localeCompare(b.description || "") * direction;
+        case "user":
+          return (a.user || "").localeCompare(b.user || "") * direction;
+        default:
+          return 0;
       }
-      if (sortField === "company_credit_card") {
-        return (Number(a.company_credit_card) - Number(b.company_credit_card)) * direction;
-      }
-      if (sortField === "date") {
-        return (new Date(a.datetime).getTime() - new Date(b.datetime).getTime()) * direction;
-      }
-      
-      // Handle string comparisons
-      const aVal = a[sortField]?.toLowerCase() ?? "";
-      const bVal = b[sortField]?.toLowerCase() ?? "";
-      return aVal.localeCompare(bVal) * direction;
     });
 
   function handleDeleteClick(row: Expense) {
@@ -266,9 +271,11 @@
           {#each sortFields as field}
             <Table.Head 
               class="min-w-[150px] cursor-pointer select-none hover:bg-muted/50"
-              on:click={() => handleSort(field)}
             >
-              <div class="flex items-center gap-1">
+              <button 
+                class="flex items-center gap-1 w-full text-left"
+                on:click|stopPropagation={() => handleSort(field)}
+              >
                 <span class="capitalize">{field.replace(/_/g, ' ')}</span>
                 {#if sortField === field}
                   <span class="text-primary">
@@ -281,7 +288,7 @@
                 {:else}
                   <ArrowUpDown class="h-4 w-4 opacity-0 group-hover:opacity-100" />
                 {/if}
-              </div>
+              </button>
             </Table.Head>
           {/each}
           <Table.Head class="w-[150px]">Actions</Table.Head>
