@@ -19,7 +19,8 @@
   import * as Dialog from "$lib/components/ui/dialog";
   import { Label } from "$lib/components/ui/label";
   import { Checkbox } from "$lib/components/ui/checkbox";
-  import { Camera, Search, ArrowUpDown } from "lucide-svelte";
+  import { Camera, Search, ArrowUpDown, Calendar, ChevronDown, ChevronUp, Edit2, Trash2 } from "lucide-svelte";
+  import { Card } from "$lib/components/ui/card";
 
   interface Expense {
     collectionId: string;
@@ -38,10 +39,14 @@
     customer_id: string;
   }
 
+  type SortableField = "date" | "amount" | "customer" | "type";
+
   let tempExpenses: Expense[] = [];
   let searchQuery = "";
-  let sortField: keyof Expense | null = null;
+  let sortField: SortableField | null = null;
   let sortDirection: "asc" | "desc" = "desc";
+
+  const sortFields: SortableField[] = ["date", "amount", "customer", "type"];
 
   $: tempExpenses = $expenses.map((expense) => ({
     collectionId: expense.collectionId,
@@ -96,13 +101,10 @@
       if (typeof aVal === "number" && typeof bVal === "number") {
         return (aVal - bVal) * direction;
       }
-      if (typeof aVal === "boolean" && typeof bVal === "boolean") {
-        return (aVal === bVal ? 0 : aVal ? 1 : -1) * direction;
-      }
       return 0;
     });
 
-  function handleSort(field: keyof Expense) {
+  function handleSort(field: SortableField) {
     if (sortField === field) {
       sortDirection = sortDirection === "asc" ? "desc" : "asc";
     } else {
@@ -242,7 +244,8 @@
     {/if}
   </div>
 
-  <div class="rounded-md border overflow-x-auto">
+  <!-- Desktop View (hidden on mobile) -->
+  <div class="hidden md:block rounded-md border overflow-x-auto">
     <Table.Root>
       <Table.Header>
         <Table.Row>
@@ -347,6 +350,108 @@
         {/each}
       </Table.Body>
     </Table.Root>
+  </div>
+
+  <!-- Mobile View (hidden on desktop) -->
+  <div class="block md:hidden space-y-4">
+    {#each sortedAndFilteredExpenses as expense}
+      <Card class="p-4">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-2">
+            <span class="font-medium">{expense.customer}</span>
+            {#if expense.company_credit_card}
+              <span class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 text-xs px-2 py-0.5 rounded">Company Card</span>
+            {/if}
+          </div>
+          <div class="text-right font-medium">
+            {expense.amount.toFixed(2)} CHF
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-2 text-sm mb-3">
+          <div class="flex items-center gap-1 text-muted-foreground">
+            <Calendar class="h-4 w-4" />
+            {expense.date}
+          </div>
+          <div class="text-right text-muted-foreground">
+            {expense.type}
+          </div>
+        </div>
+
+        {#if expense.description}
+          <p class="text-sm text-muted-foreground mb-3">
+            {expense.description}
+          </p>
+        {/if}
+
+        {#if expense.picture}
+          <div class="mb-3">
+            <Lightbox>
+              <img src={expense.picture} alt="Receipt" class="rounded-md w-full h-32 object-cover" />
+            </Lightbox>
+          </div>
+        {/if}
+
+        {#if client.authStore.model && client.authStore.model.admin}
+          <div class="text-sm text-muted-foreground mb-3">
+            Added by {expense.user}
+          </div>
+        {/if}
+
+        <div class="flex gap-2 justify-end">
+          <Button variant="outline" size="sm" class="w-full" on:click={() => handleEditClick(expense)}>
+            <Edit2 class="h-4 w-4 mr-2" />
+            Edit
+          </Button>
+          <AlertDialog.Root>
+            <AlertDialog.Trigger asChild let:builder>
+              <Button builders={[builder]} variant="destructive" size="sm" class="w-full">
+                <Trash2 class="h-4 w-4 mr-2" />
+                Delete
+              </Button>
+            </AlertDialog.Trigger>
+            <AlertDialog.Content>
+              <AlertDialog.Header>
+                <AlertDialog.Title>Are you absolutely sure?</AlertDialog.Title>
+                <AlertDialog.Description>
+                  This action cannot be undone. This will permanently delete the expense.
+                </AlertDialog.Description>
+              </AlertDialog.Header>
+              <AlertDialog.Footer>
+                <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+                <AlertDialog.Action on:click={() => handleDeleteClick(expense)}>
+                  Continue
+                </AlertDialog.Action>
+              </AlertDialog.Footer>
+            </AlertDialog.Content>
+          </AlertDialog.Root>
+        </div>
+      </Card>
+    {/each}
+  </div>
+
+  <!-- Mobile Sort Controls -->
+  <div class="block md:hidden fixed bottom-20 right-4 z-10">
+    <div class="bg-background rounded-lg shadow-lg border p-4">
+      <div class="text-sm font-medium mb-2">Sort by</div>
+      <div class="space-y-2">
+        {#each sortFields as field}
+          <button
+            class="flex items-center justify-between w-full px-2 py-1 rounded hover:bg-muted"
+            on:click={() => handleSort(field)}
+          >
+            <span class="capitalize">{field}</span>
+            {#if sortField === field}
+              {#if sortDirection === "asc"}
+                <ChevronUp class="h-4 w-4" />
+              {:else}
+                <ChevronDown class="h-4 w-4" />
+              {/if}
+            {/if}
+          </button>
+        {/each}
+      </div>
+    </div>
   </div>
 </div>
 
