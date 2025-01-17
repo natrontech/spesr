@@ -233,9 +233,9 @@
             <Command.Group>
               {#each parsedCustomers as customer}
                 <Command.Item
-                  value={customer.value}
-                  onSelect={(currentValue) => {
-                    customerValue = currentValue;
+                  value={customer.label}
+                  onSelect={() => {
+                    customerValue = customer.value;
                     closeCustomerCombobox(ids.trigger);
                   }}
                 >
@@ -273,9 +273,9 @@
             <Command.Group>
               {#each parsedExpenseTypes as expenseType}
                 <Command.Item
-                  value={expenseType.value}
-                  onSelect={(currentValue) => {
-                    expenseTypeValue = currentValue;
+                  value={expenseType.label}
+                  onSelect={() => {
+                    expenseTypeValue = expenseType.value;
                     closeExpenseTypeCombobox(ids.trigger);
                   }}
                 >
