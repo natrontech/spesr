@@ -13,15 +13,21 @@
   import { writable } from "svelte/store";
   import * as Table from "$lib/components/ui/table";
   import { Input } from "$lib/components/ui/input";
-  import { DateFormatter, getLocalTimeZone } from "@internationalized/date";
+  import { DateFormatter, getLocalTimeZone, parseDate, type DateValue } from "@internationalized/date";
   import { customers } from "$lib/stores/data/customers";
   import { expenseTypes } from "$lib/stores/data/expense_types";
   import * as Dialog from "$lib/components/ui/dialog";
   import { Label } from "$lib/components/ui/label";
   import { Checkbox } from "$lib/components/ui/checkbox";
-  import { Camera, Search, ArrowUpDown, Calendar, ChevronDown, ChevronUp, Edit2, Trash2 } from "lucide-svelte";
+  import { Camera, Search, ArrowUpDown, Calendar as CalendarIcon, ChevronDown, ChevronUp, Edit2, Trash2, Check } from "lucide-svelte";
   import { Card } from "$lib/components/ui/card";
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
+  import * as Popover from "$lib/components/ui/popover/index.js";
+  import * as Command from "$lib/components/ui/command/index.js";
+  import { cn } from "$lib/utils";
+  import { tick } from "svelte";
+  import { Calendar } from "$lib/components/ui/calendar/index.js";
+  import { CaretSort } from "svelte-radix";
 
   interface Expense {
     collectionId: string;
@@ -64,6 +70,42 @@
   let deleteDialogOpen = false;
   let expenseToDelete: Expense | null = null;
   let newPicture: File | null = null;
+  let editDateOpen = false;
+  let editDateValue: DateValue | undefined = undefined;
+
+  // For edit form
+  let parsedCustomers: Array<{ value: string, label: string }> = [];
+  let parsedExpenseTypes: Array<{ value: string, label: string }> = [];
+  let editCustomerOpen = false;
+  let editExpenseTypeOpen = false;
+
+  $: parsedCustomers = $customers.map((customer) => {
+    return {
+      value: customer.id,
+      label: customer.name
+    };
+  });
+
+  $: parsedExpenseTypes = $expenseTypes.map((expenseType) => {
+    return {
+      value: expenseType.id,
+      label: expenseType.name
+    };
+  });
+
+  function closeEditCustomerCombobox(triggerId: string) {
+    editCustomerOpen = false;
+    tick().then(() => {
+      document.getElementById(triggerId)?.focus();
+    });
+  }
+
+  function closeEditExpenseTypeCombobox(triggerId: string) {
+    editExpenseTypeOpen = false;
+    tick().then(() => {
+      document.getElementById(triggerId)?.focus();
+    });
+  }
 
   const sortFields: SortableField[] = ["customer", "date", "type", "description", "amount", "company_credit_card"];
   if (client.authStore.model?.admin) {
@@ -180,6 +222,7 @@
 
   function handleEditClick(expense: Expense) {
     editingExpense = { ...expense };
+    editDateValue = parseDate(new Date(expense.datetime).toISOString().split('T')[0]);
     editDialogOpen = true;
   }
 
@@ -191,10 +234,10 @@
   }
 
   async function handleEditSubmit() {
-    if (!editingExpense) return;
+    if (!editingExpense || !editDateValue) return;
 
     const formData = new FormData();
-    formData.append("datetime", editingExpense.datetime);
+    formData.append("datetime", editDateValue.toDate(getLocalTimeZone()).toISOString());
     formData.append("customer", editingExpense.customer_id);
     formData.append("expense_type", editingExpense.expense_type);
     formData.append("description", editingExpense.description);
@@ -213,6 +256,7 @@
       toast.success("Expense updated successfully!");
       editDialogOpen = false;
       editingExpense = null;
+      editDateValue = undefined;
       newPicture = null;
     } catch (error) {
       console.error(error);
@@ -438,7 +482,7 @@
 
         <div class="grid grid-cols-2 gap-2 text-sm mb-3">
           <div class="flex items-center gap-1 text-muted-foreground">
-            <Calendar class="h-4 w-4" />
+            <CalendarIcon class="h-4 w-4" />
             {expense.date}
           </div>
           <div class="text-right text-muted-foreground">
@@ -483,6 +527,110 @@
 
     {#if editingExpense}
       <form class="grid gap-4" on:submit|preventDefault={handleEditSubmit}>
+        <Popover.Root bind:open={editDateOpen} let:ids>
+          <Popover.Trigger asChild let:builder>
+            <Button
+              variant="outline"
+              class={cn(
+                "w-full justify-start text-left font-normal"
+              )}
+              builders={[builder]}
+            >
+              <CalendarIcon class="mr-2 h-4 w-4" />
+              {editDateValue ? editDateValue.toDate(getLocalTimeZone()).toLocaleDateString('de-CH', { dateStyle: 'long' }) : 'Select date'}
+            </Button>
+          </Popover.Trigger>
+          <Popover.Content class="w-auto p-0" align="center">
+            <Calendar bind:value={editDateValue} />
+          </Popover.Content>
+        </Popover.Root>
+
+        <Popover.Root bind:open={editCustomerOpen} let:ids>
+          <Popover.Trigger asChild let:builder>
+            <Button
+              builders={[builder]}
+              variant="outline"
+              role="combobox"
+              aria-expanded={editCustomerOpen}
+              class="w-full justify-between"
+            >
+              {editingExpense.customer || "Select customer"}
+              <CaretSort class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </Popover.Trigger>
+          <Popover.Content class="w-[200px] p-0">
+            <Command.Root>
+              <Command.Input placeholder="Search customers..." class="h-9" />
+              <Command.Empty>No customer found.</Command.Empty>
+              <Command.Group>
+                {#each parsedCustomers as customer}
+                  <Command.Item
+                    value={customer.label}
+                    onSelect={() => {
+                      if (editingExpense) {
+                        editingExpense.customer_id = customer.value;
+                        editingExpense.customer = customer.label;
+                        closeEditCustomerCombobox(ids.trigger);
+                      }
+                    }}
+                  >
+                    <Check
+                      class={cn(
+                        "mr-2 h-4 w-4",
+                        editingExpense.customer_id !== customer.value && "text-transparent"
+                      )}
+                    />
+                    {customer.label}
+                  </Command.Item>
+                {/each}
+              </Command.Group>
+            </Command.Root>
+          </Popover.Content>
+        </Popover.Root>
+
+        <Popover.Root bind:open={editExpenseTypeOpen} let:ids>
+          <Popover.Trigger asChild let:builder>
+            <Button
+              builders={[builder]}
+              variant="outline"
+              role="combobox"
+              aria-expanded={editExpenseTypeOpen}
+              class="w-full justify-between"
+            >
+              {editingExpense.type || "Select type"}
+              <CaretSort class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </Popover.Trigger>
+          <Popover.Content class="w-[200px] p-0">
+            <Command.Root>
+              <Command.Input placeholder="Search expense type..." class="h-9" />
+              <Command.Empty>No expense type found.</Command.Empty>
+              <Command.Group>
+                {#each parsedExpenseTypes as expenseType}
+                  <Command.Item
+                    value={expenseType.label}
+                    onSelect={() => {
+                      if (editingExpense) {
+                        editingExpense.expense_type = expenseType.value;
+                        editingExpense.type = expenseType.label;
+                        closeEditExpenseTypeCombobox(ids.trigger);
+                      }
+                    }}
+                  >
+                    <Check
+                      class={cn(
+                        "mr-2 h-4 w-4",
+                        editingExpense.expense_type !== expenseType.value && "text-transparent"
+                      )}
+                    />
+                    {expenseType.label}
+                  </Command.Item>
+                {/each}
+              </Command.Group>
+            </Command.Root>
+          </Popover.Content>
+        </Popover.Root>
+
         <div class="grid gap-2">
           <Label for="edit-description">Description</Label>
           <Input id="edit-description" bind:value={editingExpense.description} />
