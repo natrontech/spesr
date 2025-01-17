@@ -61,6 +61,8 @@
   let selectedRow: Expense | null = null;
   let editingExpense: Expense | null = null;
   let editDialogOpen = false;
+  let deleteDialogOpen = false;
+  let expenseToDelete: Expense | null = null;
   let newPicture: File | null = null;
 
   const sortFields: SortableField[] = ["customer", "date", "type", "description", "amount", "company_credit_card"];
@@ -154,26 +156,26 @@
       }
     });
 
-  function handleDeleteClick(row: Expense) {
-    selectedRow = row;
+  function handleDeleteClick(expense: Expense) {
+    expenseToDelete = expense;
+    deleteDialogOpen = true;
+  }
 
-    if (!selectedRow) return;
+  async function confirmDelete() {
+    if (!expenseToDelete) return;
 
-    client
-      .collection("expenses")
-      .delete(selectedRow.id)
-      .then(() => {
-        updateDataStores({
-          filter: UpdateFilterEnum.ALL
-        }).catch((error) => {
-          console.error(error);
-        });
-        toast.success("Expense deleted successfully!");
-      })
-      .catch((error) => {
-        console.error(error);
-        toast.error("Failed to delete expense!");
+    try {
+      await client.collection("expenses").delete(expenseToDelete.id);
+      await updateDataStores({
+        filter: UpdateFilterEnum.ALL
       });
+      toast.success("Expense deleted successfully!");
+      deleteDialogOpen = false;
+      expenseToDelete = null;
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to delete expense!");
+    }
   }
 
   function handleEditClick(expense: Expense) {
@@ -342,16 +344,18 @@
             <Table.Cell>{expense.date}</Table.Cell>
             <Table.Cell>{expense.type}</Table.Cell>
             <Table.Cell>{expense.description}</Table.Cell>
-            <Table.Cell class="text-right">{expense.amount.toFixed(2)} CHF</Table.Cell>
+            <Table.Cell class="text-right font-medium">{expense.amount.toFixed(2)} CHF</Table.Cell>
             <Table.Cell>
               {#if expense.company_credit_card}
                 <span class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 text-xs px-2 py-0.5 rounded">Company Card</span>
+              {:else}
+                <span class="bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-100 text-xs px-2 py-0.5 rounded">Self Paid</span>
               {/if}
             </Table.Cell>
             {#if client.authStore.model?.admin}
               <Table.Cell>{expense.user}</Table.Cell>
             {/if}
-            <Table.Cell class="text-right">
+            <Table.Cell>
               <div class="flex justify-end gap-2">
                 {#if expense.picture}
                   <Lightbox>
@@ -395,15 +399,19 @@
   <div class="block md:hidden space-y-4">
     {#each sortedAndFilteredExpenses as expense}
       <Card class="p-4">
-        <div class="flex items-center justify-between mb-2">
-          <div class="flex items-center gap-2">
+        <div class="space-y-2 mb-2">
+          <div class="flex items-center justify-between">
             <span class="font-medium">{expense.customer}</span>
+            <div class="text-right font-medium">
+              {expense.amount.toFixed(2)} CHF
+            </div>
+          </div>
+          <div>
             {#if expense.company_credit_card}
               <span class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 text-xs px-2 py-0.5 rounded">Company Card</span>
+            {:else}
+              <span class="bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-100 text-xs px-2 py-0.5 rounded">Self Paid</span>
             {/if}
-          </div>
-          <div class="text-right font-medium">
-            {expense.amount.toFixed(2)} CHF
           </div>
         </div>
         
@@ -531,6 +539,24 @@
     {/if}
   </Dialog.Content>
 </Dialog.Root>
+
+<AlertDialog.Root bind:open={deleteDialogOpen}>
+  <AlertDialog.Content>
+    <AlertDialog.Header>
+      <AlertDialog.Title>Are you sure?</AlertDialog.Title>
+      <AlertDialog.Description>
+        This action cannot be undone. This will permanently delete the expense
+        {#if expenseToDelete}
+          for {expenseToDelete.amount.toFixed(2)} CHF from {expenseToDelete.customer}.
+        {/if}
+      </AlertDialog.Description>
+    </AlertDialog.Header>
+    <AlertDialog.Footer>
+      <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+      <AlertDialog.Action on:click={confirmDelete}>Delete</AlertDialog.Action>
+    </AlertDialog.Footer>
+  </AlertDialog.Content>
+</AlertDialog.Root>
 
 {#if client.authStore.model && client.authStore.model.admin}
   <Drawer.Root open={$drawerOpen}>
