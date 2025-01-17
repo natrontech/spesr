@@ -158,6 +158,15 @@
     editDialogOpen = true;
   }
 
+  let newPicture: File | null = null;
+
+  function handleFileChange(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (input?.files?.length) {
+      newPicture = input.files[0];
+    }
+  }
+
   async function handleEditSubmit() {
     if (!editingExpense) return;
 
@@ -168,6 +177,10 @@
     formData.append("description", editingExpense.description);
     formData.append("amount", editingExpense.amount.toString());
     formData.append("company_credit_card", editingExpense.company_credit_card.toString());
+    
+    if (newPicture) {
+      formData.append("picture", newPicture);
+    }
 
     try {
       await client.collection("expenses").update(editingExpense.id, formData);
@@ -177,6 +190,7 @@
       toast.success("Expense updated successfully!");
       editDialogOpen = false;
       editingExpense = null;
+      newPicture = null;
     } catch (error) {
       console.error(error);
       toast.error("Failed to update expense!");
@@ -442,6 +456,40 @@
           <Label for="edit-amount">Amount (CHF)</Label>
           <Input id="edit-amount" type="number" step="0.01" bind:value={editingExpense.amount} />
         </div>
+        <div class="grid gap-2">
+          <Label for="edit-picture">Receipt Picture</Label>
+          {#if editingExpense.picture && !newPicture}
+            <div class="mb-2">
+              <img src={editingExpense.picture} alt="Current receipt" class="max-h-32 rounded-lg" />
+            </div>
+          {/if}
+          {#if newPicture}
+            <div class="mb-2">
+              <img src={URL.createObjectURL(newPicture)} alt="New receipt" class="max-h-32 rounded-lg" />
+            </div>
+          {/if}
+          <div class="file-input-wrapper">
+            <input
+              id="edit-picture"
+              type="file"
+              class="file-input"
+              accept="image/*"
+              on:change={(event) => {
+                if (event.target) {
+                  // @ts-expect-error - event.target.files is a FileList
+                  newPicture = event.target.files[0];
+                }
+              }}
+            />
+            <label 
+              for="edit-picture" 
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full"
+            >
+              <Camera class="h-4 w-4 mr-2" />
+              Upload New Picture
+            </label>
+          </div>
+        </div>
         <div class="flex items-center space-x-2">
           <Checkbox id="edit-company-card" bind:checked={editingExpense.company_credit_card} />
           <Label for="edit-company-card">Company credit card used</Label>
@@ -501,3 +549,29 @@
     </Drawer.Content>
   </Drawer.Root>
 {/if}
+
+<style>
+  .file-input-wrapper {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+  }
+  .file-input {
+    display: none; /* Hide the actual file input */
+  }
+  .file-input-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    background-color: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    width: 100%;
+    color: var(--foreground);
+  }
+  .file-input-button:hover {
+    background-color: var(--muted);
+  }
+</style>
