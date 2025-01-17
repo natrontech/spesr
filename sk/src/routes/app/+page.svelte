@@ -21,6 +21,7 @@
   import { Checkbox } from "$lib/components/ui/checkbox";
   import { Camera, Search, ArrowUpDown, Calendar, ChevronDown, ChevronUp, Edit2, Trash2 } from "lucide-svelte";
   import { Card } from "$lib/components/ui/card";
+  import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
 
   interface Expense {
     collectionId: string;
@@ -43,8 +44,24 @@
 
   let tempExpenses: Expense[] = [];
   let searchQuery = "";
-  let sortField: SortableField = "date";  // Changed from null to "date"
+  let sortField: SortableField = "date";
   let sortDirection: "asc" | "desc" = "desc";
+
+  // Get current date for filters and CSV export
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth();
+  const currentYear = currentDate.getFullYear();
+
+  let selectedFilterMonth: string = currentMonth.toString();
+  let selectedFilterYear: number = currentYear;
+  let selectedMonth: string = (currentMonth + 1).toString().padStart(2, "0");
+  let selectedYear: string = currentYear.toString();
+
+  const drawerOpen = writable(false);
+  let selectedRow: Expense | null = null;
+  let editingExpense: Expense | null = null;
+  let editDialogOpen = false;
+  let newPicture: File | null = null;
 
   const sortFields: SortableField[] = ["customer", "date", "type", "description", "amount", "company_credit_card"];
   if (client.authStore.model?.admin) {
@@ -92,7 +109,13 @@
     user: expense.expand.user.name
   }));
 
-  $: sortedAndFilteredExpenses = tempExpenses
+  $: filteredByMonthExpenses = tempExpenses.filter((expense) => {
+    if (selectedFilterMonth === "all") return true;
+    const expenseDate = new Date(expense.datetime);
+    return expenseDate.getMonth() === parseInt(selectedFilterMonth);
+  });
+
+  $: sortedAndFilteredExpenses = filteredByMonthExpenses
     .filter((expense) => {
       if (!searchQuery) return true;
       const query = searchQuery.toLowerCase();
@@ -157,8 +180,6 @@
     editingExpense = { ...expense };
     editDialogOpen = true;
   }
-
-  let newPicture: File | null = null;
 
   function handleFileChange(event: Event) {
     const input = event.target as HTMLInputElement;
@@ -238,39 +259,45 @@
     downloadCSV();
     drawerOpen.set(false);
   }
-
-  let selectedRow: Expense | null = null;
-  let editingExpense: Expense | null = null;
-  let editDialogOpen = false;
-
-  // Get current date
-  const currentDate = new Date();
-
-  // Calculate last month and current year
-  let lastMonth = currentDate.getMonth();
-  let currentYear = currentDate.getFullYear();
-
-  if (lastMonth === 0) {
-    lastMonth = 12;
-    currentYear -= 1;
-  }
-
-  let selectedMonth: string = lastMonth.toString().padStart(2, "0");
-  let selectedYear: string = currentYear.toString();
-
-  const drawerOpen = writable(false);
 </script>
 
 <div class="container mx-auto py-6 px-4">
   <div class="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
-    <div class="relative w-full sm:w-auto sm:min-w-[300px]">
-      <Search class="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-      <Input
-        type="text"
-        placeholder="Search expenses..."
-        class="pl-8"
-        bind:value={searchQuery}
-      />
+    <div class="flex gap-2 w-full sm:w-auto">
+      <div class="relative w-full sm:w-auto sm:min-w-[300px]">
+        <Search class="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          type="text"
+          placeholder="Search expenses..."
+          class="pl-8"
+          bind:value={searchQuery}
+        />
+      </div>
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger asChild let:builder>
+          <Button variant="outline" builders={[builder]} class="w-[180px]">
+            {#if selectedFilterMonth === "all"}
+              All Expenses
+            {:else}
+              {new Date(selectedFilterYear, parseInt(selectedFilterMonth), 1).toLocaleDateString('de-CH', { month: 'long', year: 'numeric' })}
+            {/if}
+            <ChevronDown class="ml-2 h-4 w-4" />
+          </Button>
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Content align="end">
+          <DropdownMenu.Label>Filter by Month</DropdownMenu.Label>
+          <DropdownMenu.Separator />
+          <DropdownMenu.RadioGroup bind:value={selectedFilterMonth}>
+            <DropdownMenu.RadioItem value="all">All Expenses</DropdownMenu.RadioItem>
+            <DropdownMenu.RadioItem value={currentMonth.toString()}>
+              {new Date(currentYear, currentMonth).toLocaleDateString('de-CH', { month: 'long' })}
+            </DropdownMenu.RadioItem>
+            <DropdownMenu.RadioItem value={(currentMonth - 1 >= 0 ? currentMonth - 1 : 11).toString()}>
+              {new Date(currentYear, currentMonth - 1 >= 0 ? currentMonth - 1 : 11).toLocaleDateString('de-CH', { month: 'long' })}
+            </DropdownMenu.RadioItem>
+          </DropdownMenu.RadioGroup>
+        </DropdownMenu.Content>
+      </DropdownMenu.Root>
     </div>
     {#if client.authStore.model && client.authStore.model.admin}
       <Button variant="outline" on:click={() => drawerOpen.set(true)}>Download CSV</Button>
