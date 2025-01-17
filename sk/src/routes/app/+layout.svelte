@@ -58,60 +58,74 @@
     }, {});
 
     // Count frequency of expense types per customer
-    const customerTypeFrequency = $expenses.reduce((acc: Record<string, Record<string, number>>, expense) => {
-      const customerId = expense.customer;
-      const typeId = expense.expense_type;
-      if (!acc[customerId]) {
-        acc[customerId] = {};
-      }
-      acc[customerId][typeId] = (acc[customerId][typeId] || 0) + 1;
-      return acc;
-    }, {});
+    const customerTypeFrequency = $expenses.reduce(
+      (acc: Record<string, Record<string, number>>, expense) => {
+        const customerId = expense.customer;
+        const typeId = expense.expense_type;
+        if (!acc[customerId]) {
+          acc[customerId] = {};
+        }
+        acc[customerId][typeId] = (acc[customerId][typeId] || 0) + 1;
+        return acc;
+      },
+      {}
+    );
 
     // Count frequency of customers per type
-    const typeCustomerFrequency = $expenses.reduce((acc: Record<string, Record<string, number>>, expense) => {
-      const typeId = expense.expense_type;
-      const customerId = expense.customer;
-      if (!acc[typeId]) {
-        acc[typeId] = {};
-      }
-      acc[typeId][customerId] = (acc[typeId][customerId] || 0) + 1;
-      return acc;
-    }, {});
+    const typeCustomerFrequency = $expenses.reduce(
+      (acc: Record<string, Record<string, number>>, expense) => {
+        const typeId = expense.expense_type;
+        const customerId = expense.customer;
+        if (!acc[typeId]) {
+          acc[typeId] = {};
+        }
+        acc[typeId][customerId] = (acc[typeId][customerId] || 0) + 1;
+        return acc;
+      },
+      {}
+    );
 
     // Map and sort customers based on context
-    parsedCustomers = $customers.map((customer) => ({
-      value: customer.id,
-      label: customer.name,
-      frequency: customerFrequency[customer.id] || 0,
-      // If a type is selected, use the frequency of this customer with that type
-      contextFrequency: expenseTypeValue ? (typeCustomerFrequency[expenseTypeValue]?.[customer.id] || 0) : 0
-    })).sort((a, b) => {
-      // If we have a type selected, sort by context frequency first
-      if (expenseTypeValue) {
-        const contextDiff = b.contextFrequency - a.contextFrequency;
-        if (contextDiff !== 0) return contextDiff;
-      }
-      // Fall back to overall frequency
-      return b.frequency - a.frequency;
-    });
+    parsedCustomers = $customers
+      .map((customer) => ({
+        value: customer.id,
+        label: customer.name,
+        frequency: customerFrequency[customer.id] || 0,
+        // If a type is selected, use the frequency of this customer with that type
+        contextFrequency: expenseTypeValue
+          ? typeCustomerFrequency[expenseTypeValue]?.[customer.id] || 0
+          : 0
+      }))
+      .sort((a, b) => {
+        // If we have a type selected, sort by context frequency first
+        if (expenseTypeValue) {
+          const contextDiff = b.contextFrequency - a.contextFrequency;
+          if (contextDiff !== 0) return contextDiff;
+        }
+        // Fall back to overall frequency
+        return b.frequency - a.frequency;
+      });
 
     // Map and sort expense types based on context
-    parsedExpenseTypes = $expenseTypes.map((expenseType) => ({
-      value: expenseType.id,
-      label: expenseType.name,
-      frequency: customerFrequency[expenseType.id] || 0,
-      // If a customer is selected, use the frequency of this type with that customer
-      contextFrequency: customerValue ? (customerTypeFrequency[customerValue]?.[expenseType.id] || 0) : 0
-    })).sort((a, b) => {
-      // If we have a customer selected, sort by context frequency first
-      if (customerValue) {
-        const contextDiff = b.contextFrequency - a.contextFrequency;
-        if (contextDiff !== 0) return contextDiff;
-      }
-      // Fall back to overall frequency
-      return b.frequency - a.frequency;
-    });
+    parsedExpenseTypes = $expenseTypes
+      .map((expenseType) => ({
+        value: expenseType.id,
+        label: expenseType.name,
+        frequency: customerFrequency[expenseType.id] || 0,
+        // If a customer is selected, use the frequency of this type with that customer
+        contextFrequency: customerValue
+          ? customerTypeFrequency[customerValue]?.[expenseType.id] || 0
+          : 0
+      }))
+      .sort((a, b) => {
+        // If we have a customer selected, sort by context frequency first
+        if (customerValue) {
+          const contextDiff = b.contextFrequency - a.contextFrequency;
+          if (contextDiff !== 0) return contextDiff;
+        }
+        // Fall back to overall frequency
+        return b.frequency - a.frequency;
+      });
   }
 
   $: selectedCustomerValue =

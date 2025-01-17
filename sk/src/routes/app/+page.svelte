@@ -13,13 +13,28 @@
   import { writable } from "svelte/store";
   import * as Table from "$lib/components/ui/table";
   import { Input } from "$lib/components/ui/input";
-  import { DateFormatter, getLocalTimeZone, parseDate, type DateValue } from "@internationalized/date";
+  import {
+    DateFormatter,
+    getLocalTimeZone,
+    parseDate,
+    type DateValue
+  } from "@internationalized/date";
   import { customers } from "$lib/stores/data/customers";
   import { expenseTypes } from "$lib/stores/data/expense_types";
   import * as Dialog from "$lib/components/ui/dialog";
   import { Label } from "$lib/components/ui/label";
   import { Checkbox } from "$lib/components/ui/checkbox";
-  import { Camera, Search, ArrowUpDown, Calendar as CalendarIcon, ChevronDown, ChevronUp, Edit2, Trash2, Check } from "lucide-svelte";
+  import {
+    Camera,
+    Search,
+    ArrowUpDown,
+    Calendar as CalendarIcon,
+    ChevronDown,
+    ChevronUp,
+    Edit2,
+    Trash2,
+    Check
+  } from "lucide-svelte";
   import { Card } from "$lib/components/ui/card";
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
   import * as Popover from "$lib/components/ui/popover/index.js";
@@ -46,7 +61,14 @@
     customer_id: string;
   }
 
-  type SortableField = "date" | "amount" | "customer" | "type" | "description" | "company_credit_card" | "user";
+  type SortableField =
+    | "date"
+    | "amount"
+    | "customer"
+    | "type"
+    | "description"
+    | "company_credit_card"
+    | "user";
 
   let tempExpenses: Expense[] = [];
   let searchQuery = "";
@@ -74,8 +96,8 @@
   let editDateValue: DateValue | undefined = undefined;
 
   // For edit form
-  let parsedCustomers: Array<{ value: string, label: string, frequency: number }> = [];
-  let parsedExpenseTypes: Array<{ value: string, label: string, frequency: number }> = [];
+  let parsedCustomers: Array<{ value: string; label: string; frequency: number }> = [];
+  let parsedExpenseTypes: Array<{ value: string; label: string; frequency: number }> = [];
   let editCustomerOpen = false;
   let editExpenseTypeOpen = false;
 
@@ -87,67 +109,84 @@
   // For frequency tracking
   $: {
     // Count frequency of customers in expenses
-    const customerFrequency = $expenses.reduce((acc, expense) => {
-      const customerId = expense.customer;
-      acc[customerId] = (acc[customerId] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    const customerFrequency = $expenses.reduce(
+      (acc, expense) => {
+        const customerId = expense.customer;
+        acc[customerId] = (acc[customerId] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
 
     // Count frequency of expense types per customer
-    const customerTypeFrequency = $expenses.reduce((acc, expense) => {
-      const customerId = expense.customer;
-      const typeId = expense.expense_type;
-      if (!acc[customerId]) {
-        acc[customerId] = {};
-      }
-      acc[customerId][typeId] = (acc[customerId][typeId] || 0) + 1;
-      return acc;
-    }, {} as Record<string, Record<string, number>>);
+    const customerTypeFrequency = $expenses.reduce(
+      (acc, expense) => {
+        const customerId = expense.customer;
+        const typeId = expense.expense_type;
+        if (!acc[customerId]) {
+          acc[customerId] = {};
+        }
+        acc[customerId][typeId] = (acc[customerId][typeId] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, Record<string, number>>
+    );
 
     // Count frequency of customers per type
-    const typeCustomerFrequency = $expenses.reduce((acc, expense) => {
-      const typeId = expense.expense_type;
-      const customerId = expense.customer;
-      if (!acc[typeId]) {
-        acc[typeId] = {};
-      }
-      acc[typeId][customerId] = (acc[typeId][customerId] || 0) + 1;
-      return acc;
-    }, {} as Record<string, Record<string, number>>);
+    const typeCustomerFrequency = $expenses.reduce(
+      (acc, expense) => {
+        const typeId = expense.expense_type;
+        const customerId = expense.customer;
+        if (!acc[typeId]) {
+          acc[typeId] = {};
+        }
+        acc[typeId][customerId] = (acc[typeId][customerId] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, Record<string, number>>
+    );
 
     // Map and sort customers based on context
-    parsedCustomers = $customers.map((customer) => ({
-      value: customer.id,
-      label: customer.name,
-      frequency: customerFrequency[customer.id] || 0,
-      // If a type is selected, use the frequency of this customer with that type
-      contextFrequency: expenseTypeValue ? (typeCustomerFrequency[expenseTypeValue]?.[customer.id] || 0) : 0
-    })).sort((a, b) => {
-      // If we have a type selected, sort by context frequency first
-      if (expenseTypeValue) {
-        const contextDiff = b.contextFrequency - a.contextFrequency;
-        if (contextDiff !== 0) return contextDiff;
-      }
-      // Fall back to overall frequency
-      return b.frequency - a.frequency;
-    });
+    parsedCustomers = $customers
+      .map((customer) => ({
+        value: customer.id,
+        label: customer.name,
+        frequency: customerFrequency[customer.id] || 0,
+        // If a type is selected, use the frequency of this customer with that type
+        contextFrequency: expenseTypeValue
+          ? typeCustomerFrequency[expenseTypeValue]?.[customer.id] || 0
+          : 0
+      }))
+      .sort((a, b) => {
+        // If we have a type selected, sort by context frequency first
+        if (expenseTypeValue) {
+          const contextDiff = b.contextFrequency - a.contextFrequency;
+          if (contextDiff !== 0) return contextDiff;
+        }
+        // Fall back to overall frequency
+        return b.frequency - a.frequency;
+      });
 
     // Map and sort expense types based on context
-    parsedExpenseTypes = $expenseTypes.map((expenseType) => ({
-      value: expenseType.id,
-      label: expenseType.name,
-      frequency: customerFrequency[expenseType.id] || 0,
-      // If a customer is selected, use the frequency of this type with that customer
-      contextFrequency: customerValue ? (customerTypeFrequency[customerValue]?.[expenseType.id] || 0) : 0
-    })).sort((a, b) => {
-      // If we have a customer selected, sort by context frequency first
-      if (customerValue) {
-        const contextDiff = b.contextFrequency - a.contextFrequency;
-        if (contextDiff !== 0) return contextDiff;
-      }
-      // Fall back to overall frequency
-      return b.frequency - a.frequency;
-    });
+    parsedExpenseTypes = $expenseTypes
+      .map((expenseType) => ({
+        value: expenseType.id,
+        label: expenseType.name,
+        frequency: customerFrequency[expenseType.id] || 0,
+        // If a customer is selected, use the frequency of this type with that customer
+        contextFrequency: customerValue
+          ? customerTypeFrequency[customerValue]?.[expenseType.id] || 0
+          : 0
+      }))
+      .sort((a, b) => {
+        // If we have a customer selected, sort by context frequency first
+        if (customerValue) {
+          const contextDiff = b.contextFrequency - a.contextFrequency;
+          if (contextDiff !== 0) return contextDiff;
+        }
+        // Fall back to overall frequency
+        return b.frequency - a.frequency;
+      });
   }
 
   function closeCustomerCombobox(triggerId: string) {
@@ -164,7 +203,14 @@
     });
   }
 
-  const sortFields: SortableField[] = ["customer", "date", "type", "description", "amount", "company_credit_card"];
+  const sortFields: SortableField[] = [
+    "customer",
+    "date",
+    "type",
+    "description",
+    "amount",
+    "company_credit_card"
+  ];
   if (client.authStore.model?.admin) {
     sortFields.push("user");
   }
@@ -232,9 +278,9 @@
     })
     .sort((a, b) => {
       if (!sortField) return 0;
-      
+
       const direction = sortDirection === "asc" ? 1 : -1;
-      
+
       switch (sortField) {
         case "amount":
           return (a.amount - b.amount) * direction;
@@ -279,7 +325,7 @@
 
   function handleEditClick(expense: Expense) {
     editingExpense = { ...expense };
-    editDateValue = parseDate(new Date(expense.datetime).toISOString().split('T')[0]);
+    editDateValue = parseDate(new Date(expense.datetime).toISOString().split("T")[0]);
     editDialogOpen = true;
   }
 
@@ -300,7 +346,7 @@
     formData.append("description", editingExpense.description);
     formData.append("amount", editingExpense.amount.toString());
     formData.append("company_credit_card", editingExpense.company_credit_card.toString());
-    
+
     if (newPicture) {
       formData.append("picture", newPicture);
     }
@@ -369,12 +415,7 @@
     <div class="flex gap-2 w-full sm:w-auto">
       <div class="relative w-full sm:w-auto sm:min-w-[300px]">
         <Search class="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          type="text"
-          placeholder="Search expenses..."
-          class="pl-8"
-          bind:value={searchQuery}
-        />
+        <Input type="text" placeholder="Search expenses..." class="pl-8" bind:value={searchQuery} />
       </div>
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild let:builder>
@@ -382,7 +423,10 @@
             {#if selectedFilterMonth === "all"}
               All Expenses
             {:else}
-              {new Date(selectedFilterYear, parseInt(selectedFilterMonth), 1).toLocaleDateString('de-CH', { month: 'long', year: 'numeric' })}
+              {new Date(selectedFilterYear, parseInt(selectedFilterMonth), 1).toLocaleDateString(
+                "de-CH",
+                { month: "long", year: "numeric" }
+              )}
             {/if}
             <ChevronDown class="ml-2 h-4 w-4" />
           </Button>
@@ -393,10 +437,15 @@
           <DropdownMenu.RadioGroup bind:value={selectedFilterMonth}>
             <DropdownMenu.RadioItem value="all">All Expenses</DropdownMenu.RadioItem>
             <DropdownMenu.RadioItem value={currentMonth.toString()}>
-              {new Date(currentYear, currentMonth).toLocaleDateString('de-CH', { month: 'long' })}
+              {new Date(currentYear, currentMonth).toLocaleDateString("de-CH", { month: "long" })}
             </DropdownMenu.RadioItem>
-            <DropdownMenu.RadioItem value={(currentMonth - 1 >= 0 ? currentMonth - 1 : 11).toString()}>
-              {new Date(currentYear, currentMonth - 1 >= 0 ? currentMonth - 1 : 11).toLocaleDateString('de-CH', { month: 'long' })}
+            <DropdownMenu.RadioItem
+              value={(currentMonth - 1 >= 0 ? currentMonth - 1 : 11).toString()}
+            >
+              {new Date(
+                currentYear,
+                currentMonth - 1 >= 0 ? currentMonth - 1 : 11
+              ).toLocaleDateString("de-CH", { month: "long" })}
             </DropdownMenu.RadioItem>
           </DropdownMenu.RadioGroup>
         </DropdownMenu.Content>
@@ -413,17 +462,15 @@
       <Table.Header>
         <Table.Row>
           {#each sortFields as field}
-            <Table.Head 
-              class="min-w-[150px] cursor-pointer select-none hover:bg-muted/50"
-            >
-              <button 
+            <Table.Head class="min-w-[150px] cursor-pointer select-none hover:bg-muted/50">
+              <button
                 class="flex items-center gap-1 w-full text-left"
                 on:click|stopPropagation={() => handleSort(field)}
               >
-                <span class="capitalize">{field.replace(/_/g, ' ')}</span>
+                <span class="capitalize">{field.replace(/_/g, " ")}</span>
                 {#if sortField === field}
                   <span class="text-primary">
-                    {#if sortDirection === 'asc'}
+                    {#if sortDirection === "asc"}
                       <ChevronUp class="h-4 w-4" />
                     {:else}
                       <ChevronDown class="h-4 w-4" />
@@ -448,9 +495,15 @@
             <Table.Cell class="text-right font-medium">{expense.amount.toFixed(2)} CHF</Table.Cell>
             <Table.Cell>
               {#if expense.company_credit_card}
-                <span class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 text-xs px-2 py-0.5 rounded">Company Card</span>
+                <span
+                  class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 text-xs px-2 py-0.5 rounded"
+                  >Company Card</span
+                >
               {:else}
-                <span class="bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-100 text-xs px-2 py-0.5 rounded">Self Paid</span>
+                <span
+                  class="bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-100 text-xs px-2 py-0.5 rounded"
+                  >Self Paid</span
+                >
               {/if}
             </Table.Cell>
             {#if client.authStore.model?.admin}
@@ -466,26 +519,14 @@
                       </Button>
                     </div>
                     <div>
-                      <img
-                        src={expense.picture}
-                        alt="Expense receipt"
-                        class="max-h-[80vh]"
-                      />
+                      <img src={expense.picture} alt="Expense receipt" class="max-h-[80vh]" />
                     </div>
                   </Lightbox>
                 {/if}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  on:click={() => handleEditClick(expense)}
-                >
+                <Button variant="ghost" size="icon" on:click={() => handleEditClick(expense)}>
                   <Edit2 class="h-4 w-4" />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  on:click={() => handleDeleteClick(expense)}
-                >
+                <Button variant="ghost" size="icon" on:click={() => handleDeleteClick(expense)}>
                   <Trash2 class="h-4 w-4" />
                 </Button>
               </div>
@@ -509,13 +550,19 @@
           </div>
           <div>
             {#if expense.company_credit_card}
-              <span class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 text-xs px-2 py-0.5 rounded">Company Card</span>
+              <span
+                class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 text-xs px-2 py-0.5 rounded"
+                >Company Card</span
+              >
             {:else}
-              <span class="bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-100 text-xs px-2 py-0.5 rounded">Self Paid</span>
+              <span
+                class="bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-100 text-xs px-2 py-0.5 rounded"
+                >Self Paid</span
+              >
             {/if}
           </div>
         </div>
-        
+
         {#if expense.picture}
           <div class="mb-3 w-full">
             <Lightbox>
@@ -527,11 +574,7 @@
                 />
               </div>
               <div>
-                <img
-                  src={expense.picture}
-                  alt="Expense receipt"
-                  class="max-h-[80vh]"
-                />
+                <img src={expense.picture} alt="Expense receipt" class="max-h-[80vh]" />
               </div>
             </Lightbox>
           </div>
@@ -554,18 +597,10 @@
         {/if}
 
         <div class="flex justify-end gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            on:click={() => handleEditClick(expense)}
-          >
+          <Button variant="ghost" size="icon" on:click={() => handleEditClick(expense)}>
             <Edit2 class="h-4 w-4" />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            on:click={() => handleDeleteClick(expense)}
-          >
+          <Button variant="ghost" size="icon" on:click={() => handleDeleteClick(expense)}>
             <Trash2 class="h-4 w-4" />
           </Button>
         </div>
@@ -588,13 +623,15 @@
           <Popover.Trigger asChild let:builder>
             <Button
               variant="outline"
-              class={cn(
-                "w-full justify-start text-left font-normal"
-              )}
+              class={cn("w-full justify-start text-left font-normal")}
               builders={[builder]}
             >
               <CalendarIcon class="mr-2 h-4 w-4" />
-              {editDateValue ? editDateValue.toDate(getLocalTimeZone()).toLocaleDateString('de-CH', { dateStyle: 'long' }) : 'Select date'}
+              {editDateValue
+                ? editDateValue
+                    .toDate(getLocalTimeZone())
+                    .toLocaleDateString("de-CH", { dateStyle: "long" })
+                : "Select date"}
             </Button>
           </Popover.Trigger>
           <Popover.Content class="w-auto p-0" align="center">
@@ -685,7 +722,9 @@
                     />
                     <span class="flex-1">{expenseType.label}</span>
                     {#if expenseType.frequency > 0}
-                      <span class="text-xs text-muted-foreground ml-2">{expenseType.frequency}x</span>
+                      <span class="text-xs text-muted-foreground ml-2"
+                        >{expenseType.frequency}x</span
+                      >
                     {/if}
                   </Command.Item>
                 {/each}
@@ -711,7 +750,11 @@
           {/if}
           {#if newPicture}
             <div class="mb-2">
-              <img src={URL.createObjectURL(newPicture)} alt="New receipt" class="max-h-32 rounded-lg" />
+              <img
+                src={URL.createObjectURL(newPicture)}
+                alt="New receipt"
+                class="max-h-32 rounded-lg"
+              />
             </div>
           {/if}
           <div class="file-input-wrapper">
@@ -727,8 +770,8 @@
                 }
               }}
             />
-            <label 
-              for="edit-picture" 
+            <label
+              for="edit-picture"
               class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full"
             >
               <Camera class="h-4 w-4 mr-2" />
