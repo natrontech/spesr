@@ -74,34 +74,91 @@
   let editDateValue: DateValue | undefined = undefined;
 
   // For edit form
-  let parsedCustomers: Array<{ value: string, label: string }> = [];
-  let parsedExpenseTypes: Array<{ value: string, label: string }> = [];
+  let parsedCustomers: Array<{ value: string, label: string, frequency: number }> = [];
+  let parsedExpenseTypes: Array<{ value: string, label: string, frequency: number }> = [];
   let editCustomerOpen = false;
   let editExpenseTypeOpen = false;
 
-  $: parsedCustomers = $customers.map((customer) => {
-    return {
+  let customerOpen = false;
+  let customerValue = "";
+  let expenseTypeOpen = false;
+  let expenseTypeValue = "";
+
+  // For frequency tracking
+  $: {
+    // Count frequency of customers in expenses
+    const customerFrequency = $expenses.reduce((acc, expense) => {
+      const customerId = expense.customer;
+      acc[customerId] = (acc[customerId] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Count frequency of expense types per customer
+    const customerTypeFrequency = $expenses.reduce((acc, expense) => {
+      const customerId = expense.customer;
+      const typeId = expense.expense_type;
+      if (!acc[customerId]) {
+        acc[customerId] = {};
+      }
+      acc[customerId][typeId] = (acc[customerId][typeId] || 0) + 1;
+      return acc;
+    }, {} as Record<string, Record<string, number>>);
+
+    // Count frequency of customers per type
+    const typeCustomerFrequency = $expenses.reduce((acc, expense) => {
+      const typeId = expense.expense_type;
+      const customerId = expense.customer;
+      if (!acc[typeId]) {
+        acc[typeId] = {};
+      }
+      acc[typeId][customerId] = (acc[typeId][customerId] || 0) + 1;
+      return acc;
+    }, {} as Record<string, Record<string, number>>);
+
+    // Map and sort customers based on context
+    parsedCustomers = $customers.map((customer) => ({
       value: customer.id,
-      label: customer.name
-    };
-  });
+      label: customer.name,
+      frequency: customerFrequency[customer.id] || 0,
+      // If a type is selected, use the frequency of this customer with that type
+      contextFrequency: expenseTypeValue ? (typeCustomerFrequency[expenseTypeValue]?.[customer.id] || 0) : 0
+    })).sort((a, b) => {
+      // If we have a type selected, sort by context frequency first
+      if (expenseTypeValue) {
+        const contextDiff = b.contextFrequency - a.contextFrequency;
+        if (contextDiff !== 0) return contextDiff;
+      }
+      // Fall back to overall frequency
+      return b.frequency - a.frequency;
+    });
 
-  $: parsedExpenseTypes = $expenseTypes.map((expenseType) => {
-    return {
+    // Map and sort expense types based on context
+    parsedExpenseTypes = $expenseTypes.map((expenseType) => ({
       value: expenseType.id,
-      label: expenseType.name
-    };
-  });
+      label: expenseType.name,
+      frequency: customerFrequency[expenseType.id] || 0,
+      // If a customer is selected, use the frequency of this type with that customer
+      contextFrequency: customerValue ? (customerTypeFrequency[customerValue]?.[expenseType.id] || 0) : 0
+    })).sort((a, b) => {
+      // If we have a customer selected, sort by context frequency first
+      if (customerValue) {
+        const contextDiff = b.contextFrequency - a.contextFrequency;
+        if (contextDiff !== 0) return contextDiff;
+      }
+      // Fall back to overall frequency
+      return b.frequency - a.frequency;
+    });
+  }
 
-  function closeEditCustomerCombobox(triggerId: string) {
-    editCustomerOpen = false;
+  function closeCustomerCombobox(triggerId: string) {
+    customerOpen = false;
     tick().then(() => {
       document.getElementById(triggerId)?.focus();
     });
   }
 
-  function closeEditExpenseTypeCombobox(triggerId: string) {
-    editExpenseTypeOpen = false;
+  function closeExpenseTypeCombobox(triggerId: string) {
+    expenseTypeOpen = false;
     tick().then(() => {
       document.getElementById(triggerId)?.focus();
     });
@@ -570,7 +627,7 @@
                       if (editingExpense) {
                         editingExpense.customer_id = customer.value;
                         editingExpense.customer = customer.label;
-                        closeEditCustomerCombobox(ids.trigger);
+                        closeCustomerCombobox(ids.trigger);
                       }
                     }}
                   >
@@ -580,7 +637,10 @@
                         editingExpense.customer_id !== customer.value && "text-transparent"
                       )}
                     />
-                    {customer.label}
+                    <span class="flex-1">{customer.label}</span>
+                    {#if customer.frequency > 0}
+                      <span class="text-xs text-muted-foreground ml-2">{customer.frequency}x</span>
+                    {/if}
                   </Command.Item>
                 {/each}
               </Command.Group>
@@ -613,7 +673,7 @@
                       if (editingExpense) {
                         editingExpense.expense_type = expenseType.value;
                         editingExpense.type = expenseType.label;
-                        closeEditExpenseTypeCombobox(ids.trigger);
+                        closeExpenseTypeCombobox(ids.trigger);
                       }
                     }}
                   >
@@ -623,7 +683,10 @@
                         editingExpense.expense_type !== expenseType.value && "text-transparent"
                       )}
                     />
-                    {expenseType.label}
+                    <span class="flex-1">{expenseType.label}</span>
+                    {#if expenseType.frequency > 0}
+                      <span class="text-xs text-muted-foreground ml-2">{expenseType.frequency}x</span>
+                    {/if}
                   </Command.Item>
                 {/each}
               </Command.Group>

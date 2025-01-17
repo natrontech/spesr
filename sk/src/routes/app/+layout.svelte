@@ -23,6 +23,14 @@
   import { toast } from "svelte-sonner";
   import { updateDataStores, UpdateFilterEnum } from "$lib/stores/data/load";
   import * as Dialog from "$lib/components/ui/dialog";
+  import { expenses } from "$lib/stores/data/expenses";
+
+  interface ParsedItem {
+    value: string;
+    label: string;
+    frequency: number;
+    contextFrequency: number;
+  }
 
   let open = false;
   let dateOpen = false;
@@ -38,14 +46,73 @@
   let customerValue = "";
 
   // map $customers id to value and name to label
-  let parsedCustomers = [];
+  let parsedCustomers: ParsedItem[] = [];
+  let parsedExpenseTypes: ParsedItem[] = [];
 
-  $: parsedCustomers = $customers.map((customer) => {
-    return {
+  $: {
+    // Count frequency of customers in expenses
+    const customerFrequency = $expenses.reduce((acc: Record<string, number>, expense) => {
+      const customerId = expense.customer;
+      acc[customerId] = (acc[customerId] || 0) + 1;
+      return acc;
+    }, {});
+
+    // Count frequency of expense types per customer
+    const customerTypeFrequency = $expenses.reduce((acc: Record<string, Record<string, number>>, expense) => {
+      const customerId = expense.customer;
+      const typeId = expense.expense_type;
+      if (!acc[customerId]) {
+        acc[customerId] = {};
+      }
+      acc[customerId][typeId] = (acc[customerId][typeId] || 0) + 1;
+      return acc;
+    }, {});
+
+    // Count frequency of customers per type
+    const typeCustomerFrequency = $expenses.reduce((acc: Record<string, Record<string, number>>, expense) => {
+      const typeId = expense.expense_type;
+      const customerId = expense.customer;
+      if (!acc[typeId]) {
+        acc[typeId] = {};
+      }
+      acc[typeId][customerId] = (acc[typeId][customerId] || 0) + 1;
+      return acc;
+    }, {});
+
+    // Map and sort customers based on context
+    parsedCustomers = $customers.map((customer) => ({
       value: customer.id,
-      label: customer.name
-    };
-  });
+      label: customer.name,
+      frequency: customerFrequency[customer.id] || 0,
+      // If a type is selected, use the frequency of this customer with that type
+      contextFrequency: expenseTypeValue ? (typeCustomerFrequency[expenseTypeValue]?.[customer.id] || 0) : 0
+    })).sort((a, b) => {
+      // If we have a type selected, sort by context frequency first
+      if (expenseTypeValue) {
+        const contextDiff = b.contextFrequency - a.contextFrequency;
+        if (contextDiff !== 0) return contextDiff;
+      }
+      // Fall back to overall frequency
+      return b.frequency - a.frequency;
+    });
+
+    // Map and sort expense types based on context
+    parsedExpenseTypes = $expenseTypes.map((expenseType) => ({
+      value: expenseType.id,
+      label: expenseType.name,
+      frequency: customerFrequency[expenseType.id] || 0,
+      // If a customer is selected, use the frequency of this type with that customer
+      contextFrequency: customerValue ? (customerTypeFrequency[customerValue]?.[expenseType.id] || 0) : 0
+    })).sort((a, b) => {
+      // If we have a customer selected, sort by context frequency first
+      if (customerValue) {
+        const contextDiff = b.contextFrequency - a.contextFrequency;
+        if (contextDiff !== 0) return contextDiff;
+      }
+      // Fall back to overall frequency
+      return b.frequency - a.frequency;
+    });
+  }
 
   $: selectedCustomerValue =
     parsedCustomers.find((f) => f.value === customerValue)?.label ?? "Select a customer...";
@@ -59,16 +126,6 @@
 
   let expenseTypeOpen = false;
   let expenseTypeValue = "";
-
-  // map $expenseTypes value to value and label to label
-  let parsedExpenseTypes = [];
-
-  $: parsedExpenseTypes = $expenseTypes.map((expenseType) => {
-    return {
-      value: expenseType.id,
-      label: expenseType.name
-    };
-  });
 
   $: selectedExpenseTypeValue =
     parsedExpenseTypes.find((f) => f.value === expenseTypeValue)?.label ??
@@ -245,7 +302,10 @@
                       customerValue !== customer.value && "text-transparent"
                     )}
                   />
-                  {customer.label}
+                  <span class="flex-1">{customer.label}</span>
+                  {#if customer.frequency > 0}
+                    <span class="text-xs text-muted-foreground ml-2">{customer.frequency}x</span>
+                  {/if}
                 </Command.Item>
               {/each}
             </Command.Group>
@@ -285,7 +345,10 @@
                       expenseTypeValue !== expenseType.value && "text-transparent"
                     )}
                   />
-                  {expenseType.label}
+                  <span class="flex-1">{expenseType.label}</span>
+                  {#if expenseType.frequency > 0}
+                    <span class="text-xs text-muted-foreground ml-2">{expenseType.frequency}x</span>
+                  {/if}
                 </Command.Item>
               {/each}
             </Command.Group>
