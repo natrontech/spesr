@@ -1,2 +1,13 @@
+# Database
+*.db
+
+# Temporary files
+*.xlsx
+*.zip
 images/
-processed_file*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.env

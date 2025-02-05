@@ -1,359 +1,306 @@
-import json
-import locale
-import logging
 import os
-import re
-import string
+import sqlite3
 import zipfile
 from datetime import datetime
 from io import BytesIO
+import re
 
-import cv2
-import easyocr
-import numpy as np
 import pandas as pd
-import pytesseract
-import requests
-from openai import OpenAI
-from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font
-from PIL import Image, ImageEnhance, ImageOps, UnidentifiedImageError
+from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.styles.differential import DifferentialStyle
+from openpyxl.formatting.rule import Rule
+from PIL import Image
 from reportlab.pdfgen import canvas
-from scipy import ndimage
-
 import streamlit as st
-
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+import requests
 
 # Streamlit page configuration
 st.set_page_config(
-    page_title="CSV to Excel Processor with Embedded Images and OCR",
+    page_title="Expense Report Processor",
     initial_sidebar_state="expanded",
-    page_icon="📄",
+    page_icon="📊",
+    layout="wide"
 )
 
-# Set up OpenAI API key from environment variable
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+# Initialize session state for history
+if "processing_history" not in st.session_state:
+    st.session_state.processing_history = []
 
-@st.cache_resource
-def load_ocr_reader():
-    return easyocr.Reader(["de", "en"], gpu=True)
+def init_database():
+    conn = sqlite3.connect('expense_processor.db')
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS processing_history
+        (timestamp TEXT, filename TEXT, processed_file TEXT, 
+         total_receipts INTEGER, processed_receipts INTEGER)
+    ''')
+    conn.commit()
+    conn.close()
 
-def preprocess_image(image):
-    # Convert to grayscale
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    
-    # Binarization using Otsu's method
-    _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    
-    # Detect skew angle
-    coords = np.column_stack(np.where(binary > 0))
-    angle = cv2.minAreaRect(coords)[-1]
-    if angle < -45:
-        angle = -(90 + angle)
-    else:
-        angle = -angle
-    
-    # Rotate the image to correct skew
-    (h, w) = image.shape[:2]
-    center = (w // 2, h // 2)
-    M = cv2.getRotationMatrix2D(center, angle, 1.0)
-    rotated = cv2.warpAffine(
-        image, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE
+def add_to_history(data):
+    conn = sqlite3.connect('expense_processor.db')
+    c = conn.cursor()
+    c.execute('''
+        INSERT INTO processing_history
+        (timestamp, filename, processed_file, total_receipts, processed_receipts)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (
+        data["timestamp"], data["filename"], data["processed_file"],
+        data["total_receipts"], data["processed_receipts"]
+    ))
+    conn.commit()
+    conn.close()
+
+def get_processing_history():
+    conn = sqlite3.connect('expense_processor.db')
+    df = pd.read_sql_query(
+        'SELECT * FROM processing_history ORDER BY timestamp DESC', 
+        conn
     )
-    
-    # Enhance contrast
-    lab = cv2.cvtColor(rotated, cv2.COLOR_BGR2LAB)
-    l, a, b = cv2.split(lab)
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-    cl = clahe.apply(l)
-    limg = cv2.merge((cl, a, b))
-    enhanced = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
-    
-    # Denoise
-    denoised = cv2.fastNlMeansDenoisingColored(enhanced, None, 10, 10, 7, 21)
-    
-    # Adaptive thresholding
-    gray_denoised = cv2.cvtColor(denoised, cv2.COLOR_BGR2GRAY)
-    binary = cv2.adaptiveThreshold(
-        gray_denoised, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
-    )
-    
-    return binary
+    conn.close()
+    return df.to_dict('records')
 
-def compress_image(image_path, quality=85):
-    with Image.open(image_path) as img:
-        img = img.convert("RGB")
-        img_io = BytesIO()
-        img.save(img_io, format="JPEG", quality=quality, optimize=True)
-        img_io.seek(0)
-    return img_io
-
-def extract_text_with_easyocr(image, reader):
-    results = reader.readtext(image, detail=0)
-    return " ".join(results)
+def get_output_filename(input_filename):
+    # Extract date from input filename (e.g., expenses_2025-1.csv -> 2025-1)
+    match = re.search(r'expenses_(\d{4}-\d+)\.csv', input_filename)
+    period = match.group(1) if match else datetime.now().strftime("%Y-%m")
+    return f"processed_expenses_{period}"
 
 def format_date(date_string):
-    date_formats = ["%d. %B %Y", "%d.%m.%Y", "%d.%m.%y"]
-    current_locale = locale.getlocale()
-    try:
-        locale.setlocale(locale.LC_TIME, "de_DE")
-    except locale.Error:
-        return date_string
-    
-    for date_format in date_formats:
+    formats = ["%d. %B %Y", "%d.%m.%Y", "%d.%m.%y"]
+    for fmt in formats:
         try:
-            date_obj = datetime.strptime(date_string, date_format)
-            locale.setlocale(locale.LC_TIME, current_locale)
-            return date_obj.strftime("%Y-%m-%d")
+            return datetime.strptime(date_string, fmt).strftime("%Y-%m-%d")
         except ValueError:
             continue
-    
-    locale.setlocale(locale.LC_TIME, current_locale)
     return date_string
 
-def clean_text(text):
-    printable = set(string.printable)
-    cleaned_text = "".join(filter(lambda x: x in printable, text))
-    cleaned_text = re.sub(r"[\x00-\x1F\x7F-\x9F]", "", cleaned_text)
-    return cleaned_text
+def create_excel_file(df, filename):
+    excel_path = f"{filename}.xlsx"
+    with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Sheet1")
+        worksheet = writer.book["Sheet1"]
 
-def extract_receipt_info(extracted_text):
-    prompt = f"""
-    Rules:
-    - Leave fields empty ("") if information is missing.
-    - Return only the JSON object with specified keys.
-    - Return only the requested information.
-    - Do not include additional information.
-    - Correct any spelling or formatting errors.
+        # Style header
+        for cell in worksheet[1]:
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill(start_color="2C3E50", end_color="2C3E50", fill_type="solid")
+            cell.alignment = Alignment(horizontal="center", vertical="center")
 
-    Extract the following from the receipt text:
-    1. Amount: Total paid, format "X.XX" (no currency symbol)
-    2. Seller: Name and address, format "Name, Street Nr, ZIP City"
-    3. Card information: Last 4 digits and card type, format "XXXX, Card Type"
-    4. Date: Purchase date, format "YYYY-MM-DD"
+        # Adjust column widths
+        for col in worksheet.columns:
+            max_length = max(len(str(cell.value or "")) for cell in col)
+            worksheet.column_dimensions[col[0].column_letter].width = max_length + 2
 
-    Format output EXACTLY as follows:
-    {{
-        "extracted_amount": "amount",
-        "extracted_seller": "seller name",
-        "extracted_card_info": "card information",
-        "extracted_date": "date"
-    }}
-
-    Receipt text: {extracted_text}
-    """
-
-    for _ in range(3):  # Retry up to 3 times
-        try:
-            completion = client.chat.completions.create(
-                model="gpt-4-0613",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a helpful assistant that extracts information from receipts. Please follow the rules and extract the requested information.",
-                    },
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=0,
+        # Add conditional formatting for receipt status
+        worksheet.conditional_formatting.add(
+            f'K2:K{worksheet.max_row}',
+            Rule(
+                type="containsText",
+                operator="containsText",
+                text="Available",
+                dxf=DifferentialStyle(fill=PatternFill(bgColor="C6EFCE"))
             )
-            json_content = completion.choices[0].message.content
-            result = json.loads(json_content)
-            return json.dumps(result, indent=4)
-        except (json.JSONDecodeError, KeyError) as e:
-            st.warning(f"Failed to parse OpenAI response: {e}. Retrying...")
-            continue
+        )
+        worksheet.conditional_formatting.add(
+            f'K2:K{worksheet.max_row}',
+            Rule(
+                type="containsText",
+                operator="containsText",
+                text="Missing",
+                dxf=DifferentialStyle(fill=PatternFill(bgColor="FFC7CE"))
+            )
+        )
+        worksheet.conditional_formatting.add(
+            f'K2:K{worksheet.max_row}',
+            Rule(
+                type="containsText",
+                operator="containsText",
+                text="Failed",
+                dxf=DifferentialStyle(fill=PatternFill(bgColor="FFEB9C"))
+            )
+        )
 
-    return json.dumps(
-        {
-            "extracted_amount": "",
-            "extracted_seller": "",
-            "extracted_card_info": "",
-            "extracted_date": "",
-        },
-        indent=4,
-    )
+        # Alternate row colors
+        for row in range(2, worksheet.max_row + 1):
+            if row % 2 == 0:
+                for cell in worksheet[row]:
+                    cell.fill = PatternFill(start_color="F5F5F5", end_color="F5F5F5", fill_type="solid")
+
+    return excel_path
+
+def create_pdf_from_image(image_url):
+    if not image_url or not isinstance(image_url, str):
+        return None
+        
+    try:
+        response = requests.get(image_url, timeout=10)
+        response.raise_for_status()
+        img = Image.open(BytesIO(response.content))
+        
+        pdf_buffer = BytesIO()
+        pdf = canvas.Canvas(pdf_buffer)
+        pdf.setPageSize((img.width, img.height))
+        pdf.drawInlineImage(img, 0, 0, width=img.width, height=img.height)
+        pdf.showPage()
+        pdf.save()
+        return pdf_buffer.getvalue()
+    except:
+        return None
 
 def process_file(uploaded_file):
-    reader = load_ocr_reader()
+    output_base = get_output_filename(uploaded_file.name)
     df = pd.read_csv(uploaded_file)
-    img_dir = "images"
-    extracted_info = []
+    total_rows = len(df)
+    
+    if not os.path.exists("images"):
+        os.makedirs("images")
 
-    df["manual_amount"] = ""
-    df["manual_seller"] = ""
-    df["manual_card_info"] = ""
-    df["extracted_amount"] = ""
-    df["extracted_seller"] = ""
-    df["extracted_card_info"] = ""
-    df["extracted_date"] = ""
-    df["pdf_index"] = ""
-    df["image_filename"] = ""
+    df["pdf_index"] = range(total_rows)
+    df["date"] = df["date"].apply(format_date)
+    df["receipt_status"] = "Available"
+
+    # Convert boolean to Yes/No for company_credit_card
+    if "company_credit_card" in df.columns:
+        df["company_credit_card"] = df["company_credit_card"].map({True: "Yes", False: "No"})
+
+    columns = [
+        "pdf_index", "id", "date", "customer", "user", "picture",
+        "type", "description", "amount", "company_credit_card", "receipt_status"
+    ]
+    df = df[columns]
 
     if "picture" in df.columns:
-        if not os.path.exists(img_dir):
-            os.makedirs(img_dir)
+        df.loc[df["picture"].isna(), "receipt_status"] = "Missing"
+        df.loc[df["picture"].str.len() == 0, "receipt_status"] = "Missing"
 
-        progress_bar = st.progress(0)
+    excel_path = create_excel_file(df, output_base)
+    zip_path = f"{output_base}.zip"
 
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+
+    # Process PDFs and store them in memory
+    pdf_files = {}
+    if "picture" in df.columns:
         for index, row in df.iterrows():
-            image_url = row["picture"]
-            try:
-                response = requests.get(image_url)
-                response.raise_for_status()
-                image_bytes = BytesIO(response.content)
-                image = Image.open(image_bytes)
+            status_text.text(f"Processing receipt {index + 1} of {total_rows}")
+            progress_bar.progress((index + 1) / total_rows)
+            
+            if row["receipt_status"] == "Available":
+                pdf_content = create_pdf_from_image(row.get("picture"))
+                if not pdf_content:
+                    df.at[index, "receipt_status"] = "Failed"
+                else:
+                    pdf_name = f"{index:04d}_{row['date']}_{row['id']}.pdf"
+                    pdf_files[pdf_name] = pdf_content
 
-                formatted_date = format_date(row["date"])
-                original_img_filename = f"{index:04d}_{formatted_date}_{row['id']}_original.png"
-                original_img_path = os.path.join(img_dir, original_img_filename)
-                image.save(original_img_path)
+    # Create final Excel file with updated statuses
+    excel_path = create_excel_file(df, output_base)
 
-                # Preprocess the image
-                cv_image = cv2.imread(original_img_path)
-                preprocessed_image = preprocess_image(cv_image)
-                preprocessed_img_path = os.path.join(img_dir, f"{index:04d}_preprocessed.png")
-                cv2.imwrite(preprocessed_img_path, preprocessed_image)
+    # Create zip file with Excel and PDFs
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+        zipf.write(excel_path, f"{output_base}.xlsx")
+        
+        for pdf_name, pdf_content in pdf_files.items():
+            zipf.writestr(f"receipts/{pdf_name}", pdf_content)
 
-                # Compress the image
-                compressed_img_io = compress_image(original_img_path)
-                compressed_img_filename = f"{index:04d}_{formatted_date}_{row['id']}_compressed.jpg"
-                compressed_img_path = os.path.join(img_dir, compressed_img_filename)
-                with open(compressed_img_path, "wb") as f:
-                    f.write(compressed_img_io.getvalue())
+    # Cleanup temporary Excel file
+    if os.path.exists(excel_path):
+        os.remove(excel_path)
 
-                easyocr_text = extract_text_with_easyocr(compressed_img_path, reader)
-                receipt_info = extract_receipt_info(easyocr_text)
-                parsed_info = json.loads(receipt_info)
+    # Add to processing history
+    history_data = {
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "filename": uploaded_file.name,
+        "processed_file": zip_path,
+        "total_receipts": total_rows,
+        "processed_receipts": sum(df["receipt_status"] == "Available")
+    }
+    add_to_history(history_data)
 
-                extracted_info.append({
-                    "id": row["id"],
-                    "extracted_text": clean_text(easyocr_text),
-                    "extracted_amount": parsed_info["extracted_amount"],
-                    "extracted_seller": clean_text(parsed_info["extracted_seller"]),
-                    "extracted_card_info": clean_text(parsed_info["extracted_card_info"]),
-                    "extracted_date": format_date(parsed_info["extracted_date"]),
-                })
+    status_text.text("Processing complete!")
+    return zip_path
 
-                df.at[index, "extracted_text"] = clean_text(easyocr_text)
-                df.at[index, "picture"] = compressed_img_filename
-                df.at[index, "extracted_amount"] = parsed_info["extracted_amount"]
-                df.at[index, "extracted_seller"] = clean_text(parsed_info["extracted_seller"])
-                df.at[index, "extracted_card_info"] = clean_text(parsed_info["extracted_card_info"])
-                df.at[index, "extracted_date"] = format_date(parsed_info["extracted_date"])
-                df.at[index, "pdf_index"] = index
-
-            except (requests.RequestException, UnidentifiedImageError) as e:
-                st.error(f"Error processing image from URL {image_url}: {e}")
-                extracted_info.append({
-                    "id": row["id"],
-                    "extracted_text": f"Error processing image: {e}",
-                    "extracted_amount": "",
-                    "extracted_seller": "",
-                    "extracted_card_info": "",
-                    "extracted_date": "",
-                })
-                df.at[index, "extracted_text"] = f"Error processing image: {e}"
-                df.at[index, "picture"] = ""
-                df.at[index, "pdf_index"] = index
-
-            progress_bar.progress((index + 1) / len(df))
-
-    df["date"] = df["date"].apply(format_date)
-    df["extracted_date"] = df["extracted_date"].apply(format_date)
-
-    df = df[
-        [
-            "pdf_index",
-            "id",
-            "date",
-            "customer",
-            "user",
-            "picture",
-            "type",  # Added "type" column
-            "description",  # Added "description" column
-            "amount",
-            "company_credit_card",
-            "extracted_date",
-            "extracted_amount",
-            "extracted_seller",
-            "extracted_card_info",
-            "extracted_text",
-        ]
-    ]
-
-    with pd.ExcelWriter("processed_file.xlsx", engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Sheet1")
-        workbook = writer.book
-        worksheet = workbook["Sheet1"]
-
-        for col in worksheet.columns:
-            max_length = 0
-            column = col[0].column_letter
-            for cell in col:
-                try:
-                    if len(str(cell.value)) > max_length:
-                        max_length = len(str(cell.value))
-                except:
-                    pass
-            adjusted_width = max_length + 2
-            worksheet.column_dimensions[column].width = adjusted_width
-
-        cell = worksheet["A1"]
-        cell.font = Font(bold=True)
-        cell.alignment = Alignment(horizontal="center")
-
-    zip_filename = "processed_files.zip"
-    with zipfile.ZipFile(zip_filename, "w") as zipf:
-        zipf.write("processed_file.xlsx", "processed_file.xlsx")
-
-        for index, row in df.iterrows():
-            if row["picture"]:
-                image_path = os.path.join(img_dir, row["picture"])
-                if os.path.exists(image_path):
-                    # Open the compressed image
-                    img = Image.open(image_path)
-
-                    # Create a PDF in memory
-                    pdf_buffer = BytesIO()
-                    pdf = canvas.Canvas(pdf_buffer)
-
-                    # Add the image to the PDF
-                    pdf.setPageSize((img.width, img.height))
-                    pdf.drawInlineImage(img, 0, 0, width=img.width, height=img.height)
-                    pdf.showPage()
-                    pdf.save()
-
-                    # Get the PDF content
-                    pdf_content = pdf_buffer.getvalue()
-
-                    # Create a PDF filename
-                    pdf_filename = os.path.splitext(row["picture"])[0] + ".pdf"
-
-                    # Add the PDF to the zip file
-                    zipf.writestr(os.path.join("pdfs", pdf_filename), pdf_content)
-
-    return zip_filename
+def delete_from_history(timestamp):
+    conn = sqlite3.connect('expense_processor.db')
+    c = conn.cursor()
+    
+    # Get file path before deletion
+    c.execute('SELECT processed_file FROM processing_history WHERE timestamp = ?', (timestamp,))
+    result = c.fetchone()
+    if result:
+        file_path = result[0]
+        # Delete the zip file if it exists
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    
+    # Delete from database
+    c.execute('DELETE FROM processing_history WHERE timestamp = ?', (timestamp,))
+    conn.commit()
+    conn.close()
 
 def main():
-    st.title("CSV to Excel Processor with Embedded Images and OCR")
-    uploaded_file = st.file_uploader("Upload a CSV file", type="csv")
+    init_database()
+    
+    st.title("🧾 Expense Report Processor")
+    
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        st.markdown("""
+        ### Upload Expense Report
+        Upload your expense report CSV file (format: expenses_YYYY-M.csv)
+        """)
+        
+        uploaded_file = st.file_uploader(
+            label="Upload CSV file",
+            type="csv",
+            label_visibility="collapsed"
+        )
 
-    if uploaded_file is not None:
-        st.write("File uploaded successfully.")
-        if st.button("Process File"):
-            with st.spinner("Processing..."):
-                zip_file_path = process_file(uploaded_file)
-                if zip_file_path:
-                    with open(zip_file_path, "rb") as file:
+        if uploaded_file:
+            if not uploaded_file.name.startswith("expenses_"):
+                st.warning("File name should follow the format: expenses_YYYY-M.csv")
+            elif st.button("Process Report", type="primary"):
+                with st.spinner("Processing expense report..."):
+                    zip_path = process_file(uploaded_file)
+                    with open(zip_path, "rb") as file:
+                        st.success("Processing complete! Click below to download.")
                         st.download_button(
-                            label="Download Processed Files",
+                            label="📥 Download Processed Files",
                             data=file,
-                            file_name="processed_files.zip",
+                            file_name=os.path.basename(zip_path),
                             mime="application/zip",
+                            key="main_download"
                         )
+
+    with col2:
+        st.markdown("### Processing History")
+        history = get_processing_history()
+        if history:
+            for idx, item in enumerate(history):
+                with st.expander(f"📋 {item['filename']} ({item['timestamp']})"):
+                    col1, col2 = st.columns([3, 1])
+                    
+                    with col1:
+                        st.write(f"Total receipts: {item['total_receipts']}")
+                        st.write(f"Processed receipts: {item['processed_receipts']}")
+                        if os.path.exists(item['processed_file']):
+                            st.download_button(
+                                label="📥 Download",
+                                data=open(item['processed_file'], "rb"),
+                                file_name=os.path.basename(item['processed_file']),
+                                mime="application/zip",
+                                key=f"history_download_{idx}"
+                            )
+                    
+                    with col2:
+                        if st.button("🗑️ Delete", key=f"delete_{idx}"):
+                            delete_from_history(item['timestamp'])
+                            st.rerun()
+        else:
+            st.info("No files processed yet")
 
 if __name__ == "__main__":
     main()
