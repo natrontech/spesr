@@ -50,6 +50,8 @@
   import ExcelJS from 'exceljs';
   import JSZip from 'jszip';
   import type { ExpensesResponseWithExpand } from "$lib/pocketbase/generated-types";
+  // @ts-ignore
+  import { jsPDF } from 'jspdf';
 
   interface Expense {
     collectionId: string;
@@ -428,6 +430,9 @@
   let summaryStartDate: DateValue | undefined = undefined;
   let summaryEndDate: DateValue | undefined = undefined;
   let summaryGenerating = false;
+  let processingProgress = 0;
+  let totalFiles = 0;
+  let processedFiles = 0;
   let dateOpen = false;
   let startDateOpen = false;
   let endDateOpen = false;
@@ -538,6 +543,45 @@
     }
   }
 
+  async function convertImageToPdf(imageUrl: string): Promise<ArrayBuffer | null> {
+    try {
+      // Create a new image element
+      const img = new Image();
+      
+      // Wait for the image to load
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = imageUrl;
+      });
+      
+      // Calculate dimensions (maintain aspect ratio)
+      const imgWidth = img.width;
+      const imgHeight = img.height;
+      const pageWidth = 210; // A4 width in mm
+      
+      // Calculate height based on A4 width and original aspect ratio
+      const pageHeight = (pageWidth * imgHeight) / imgWidth;
+      
+      // Create PDF with calculated dimensions
+      const pdf = new jsPDF({
+        orientation: pageHeight > pageWidth ? 'portrait' : 'landscape',
+        unit: 'mm',
+        format: [pageWidth, pageHeight]
+      });
+      
+      // Add image to PDF (convert dimensions to mm)
+      pdf.addImage(img, 'JPEG', 0, 0, pageWidth, pageHeight);
+      
+      // Convert PDF to ArrayBuffer
+      const pdfArrayBuffer = pdf.output('arraybuffer');
+      return pdfArrayBuffer;
+    } catch (error) {
+      console.error('Error converting image to PDF:', error);
+      return null;
+    }
+  }
+
   function isFileTypePdf(url: string | null | undefined): boolean {
     if (!url) return false;
     return url.toLowerCase().endsWith('.pdf');
@@ -550,20 +594,40 @@
     }
 
     summaryGenerating = true;
+    processingProgress = 0;
     try {
       const startDate = summaryStartDate.toDate(getLocalTimeZone());
       const endDate = summaryEndDate.toDate(getLocalTimeZone());
-      const periodStr = `${startDate.getFullYear()}-${startDate.getMonth() + 1}`;
       
-      // Get expenses for the selected date range
+      // Set start date to beginning of day (00:00:00) and end date to end of day (23:59:59)
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
+      
+      // Format start and end dates for the PocketBase filter
+      // Ensure consistent UTC format for querying
+      const startISO = startDate.toISOString();
+      const endISO = endDate.toISOString();
+      
+      console.log("Date range:", startISO, "to", endISO);
+      
+      const periodStr = `${startDate.getFullYear()}-${(startDate.getMonth() + 1).toString().padStart(2, '0')}`;
+      
+      // Get all expenses first
       const expensesResult = await client.collection("expenses").getList<ExpensesResponseWithExpand>(1, 1000, {
-        filter: `datetime >= "${startDate.toISOString()}" && datetime <= "${endDate.toISOString()}"`,
         sort: "datetime",
         expand: "customer,expense_type,user"
       });
       
-      // Prepare data for Excel
-      const excelData = expensesResult.items.map((expense, index) => {
+      // Filter locally to ensure all expenses within range are included
+      const filteredExpenses = expensesResult.items.filter(expense => {
+        const expenseDate = new Date(expense.datetime);
+        return expenseDate >= startDate && expenseDate <= endDate;
+      });
+      
+      console.log(`Found ${filteredExpenses.length} expenses in date range from ${expensesResult.items.length} total`);
+      
+      // Prepare data for Excel - include ALL expenses regardless of receipt status
+      const excelData = filteredExpenses.map((expense, index) => {
         const receiptStatus = expense.picture ? "Available" : "Missing";
         const fileUrl = expense.picture ? getFileUrl(expense.collectionId, expense.id, expense.picture) : "";
         const isPdf = isFileTypePdf(expense.picture);
@@ -585,7 +649,7 @@
         };
       });
       
-      // Create Excel workbook
+      // Create Excel workbook with ALL expenses
       const workbook = createExcelWorkbook(excelData);
       
       // Create ZIP file with Excel and PDFs
@@ -598,25 +662,44 @@
       // Create a folder for receipts
       const receiptsFolder = zip.folder("receipts");
       
-      // Add PDFs to ZIP
+      // Count total files to process for progress tracking - only process expenses WITH receipts
+      const filesToProcess = excelData.filter(row => row.receipt_status === "Available");
+      totalFiles = filesToProcess.length;
+      processedFiles = 0;
+      
+      // Add PDFs to ZIP - only for expenses WITH receipts
       if (receiptsFolder) {
-        const filePromises = excelData
-          .filter(row => row.receipt_status === "Available")
-          .map(async (row, index) => {
+        const filePromises = filesToProcess
+          .map(async (row) => {
             try {
-              // Get the file data, whether it's a PDF or image
-              const fileData = await fetchFileFromUrl(row.picture);
-              if (fileData) {
-                const isPdf = isFileTypePdf(row.picture_filename);
-                const fileName = `${String(index).padStart(4, '0')}_${row.date}_${row.id}${isPdf ? '.pdf' : '.jpg'}`;
-                
-                // Simply add the file with its original extension
-                receiptsFolder.file(fileName, fileData);
-                return true;
+              const isPdf = isFileTypePdf(row.picture_filename);
+              const fileName = `${String(row.pdf_index).padStart(4, '0')}_${row.date}_${row.id}.pdf`;
+              
+              // For PDFs, add them directly
+              if (isPdf) {
+                const fileData = await fetchFileFromUrl(row.picture);
+                if (fileData) {
+                  receiptsFolder.file(fileName, fileData);
+                  processedFiles++;
+                  processingProgress = Math.round((processedFiles / totalFiles) * 100);
+                  return true;
+                }
+              } 
+              // For images, convert to PDF first
+              else {
+                const pdfData = await convertImageToPdf(row.picture);
+                if (pdfData) {
+                  receiptsFolder.file(fileName, pdfData);
+                  processedFiles++;
+                  processingProgress = Math.round((processedFiles / totalFiles) * 100);
+                  return true;
+                }
               }
               return false;
             } catch (error) {
-              console.error(`Failed to fetch file for expense ${row.id}:`, error);
+              console.error(`Failed to process file for expense ${row.id}:`, error);
+              processedFiles++;
+              processingProgress = Math.round((processedFiles / totalFiles) * 100);
               return false;
             }
           });
@@ -1190,9 +1273,24 @@
           </Popover.Content>
         </Popover.Root>
       </div>
+      
+      {#if summaryGenerating}
+        <div class="mt-2">
+          <div class="mb-2 flex justify-between text-sm text-muted-foreground">
+            <span>Processing {processedFiles} of {totalFiles} files</span>
+            <span>{processingProgress}%</span>
+          </div>
+          <div class="h-2 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              class="h-full bg-primary transition-all"
+              style="width: {processingProgress}%"
+            ></div>
+          </div>
+        </div>
+      {/if}
     </div>
     <Dialog.Footer>
-      <Button variant="outline" on:click={() => summaryDialogOpen = false}>
+      <Button variant="outline" on:click={() => summaryDialogOpen = false} disabled={summaryGenerating}>
         Cancel
       </Button>
       <Button on:click={generateSummary} disabled={summaryGenerating}>
