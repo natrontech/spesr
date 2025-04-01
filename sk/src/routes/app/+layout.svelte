@@ -162,12 +162,12 @@
     const input = event.target as HTMLInputElement;
     if (input.files && input.files[0]) {
       const file = input.files[0];
-      if (file.type === 'application/pdf' || file.type.startsWith('image/')) {
+      if (file.type === "application/pdf" || file.type.startsWith("image/")) {
         pictureFile = file;
         picture = URL.createObjectURL(file);
       } else {
         toast.error("Please upload a PDF or image file.");
-        input.value = '';
+        input.value = "";
       }
     }
   }

@@ -47,11 +47,11 @@
   import { Calendar } from "$lib/components/ui/calendar/index.js";
   import { CaretSort } from "svelte-radix";
   // @ts-ignore
-  import ExcelJS from 'exceljs';
-  import JSZip from 'jszip';
+  import ExcelJS from "exceljs";
+  import JSZip from "jszip";
   import type { ExpensesResponseWithExpand } from "$lib/pocketbase/generated-types";
   // @ts-ignore
-  import { jsPDF } from 'jspdf';
+  import { jsPDF } from "jspdf";
 
   interface Expense {
     collectionId: string;
@@ -344,11 +344,11 @@
     const input = event.target as HTMLInputElement;
     if (input.files && input.files[0]) {
       const file = input.files[0];
-      if (file.type === 'application/pdf' || file.type.startsWith('image/')) {
+      if (file.type === "application/pdf" || file.type.startsWith("image/")) {
         newPicture = file;
       } else {
         toast.error("Please upload a PDF or image file.");
-        input.value = '';
+        input.value = "";
       }
     }
   }
@@ -464,64 +464,68 @@
 
   function createExcelWorkbook(data: ExcelRowData[]) {
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Sheet1');
-    
+    const worksheet = workbook.addWorksheet("Sheet1");
+
     // Add column headers
     worksheet.columns = [
-      { header: 'PDF Index', key: 'pdf_index', width: 10 },
-      { header: 'ID', key: 'id', width: 25 },
-      { header: 'Date', key: 'date', width: 12 },
-      { header: 'Customer', key: 'customer', width: 25 },
-      { header: 'User', key: 'user', width: 15 },
-      { header: 'Picture', key: 'picture', width: 30 },
-      { header: 'Type', key: 'type', width: 20 },
-      { header: 'Description', key: 'description', width: 30 },
-      { header: 'Amount', key: 'amount', width: 12 },
-      { header: 'Company Card', key: 'company_credit_card', width: 15 },
-      { header: 'Receipt Status', key: 'receipt_status', width: 15 },
-      { header: 'File Type', key: 'file_type', width: 10 }
+      { header: "PDF Index", key: "pdf_index", width: 10 },
+      { header: "ID", key: "id", width: 25 },
+      { header: "Date", key: "date", width: 12 },
+      { header: "Customer", key: "customer", width: 25 },
+      { header: "User", key: "user", width: 15 },
+      { header: "Picture", key: "picture", width: 30 },
+      { header: "Type", key: "type", width: 20 },
+      { header: "Description", key: "description", width: 30 },
+      { header: "Amount", key: "amount", width: 12 },
+      { header: "Company Card", key: "company_credit_card", width: 15 },
+      { header: "Receipt Status", key: "receipt_status", width: 15 },
+      { header: "File Type", key: "file_type", width: 10 }
     ];
-    
+
     // Format header row
-    worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFF' } };
-    worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '2C3E50' } };
-    worksheet.getRow(1).alignment = { horizontal: 'center', vertical: 'middle' };
-    
+    worksheet.getRow(1).font = { bold: true, color: { argb: "FFFFFF" } };
+    worksheet.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "2C3E50" } };
+    worksheet.getRow(1).alignment = { horizontal: "center", vertical: "middle" };
+
     // Add data rows
     data.forEach((row, index) => {
       worksheet.addRow(row);
-      
+
       // Add alternating row colors
       if (index % 2 === 1) {
-        worksheet.getRow(index + 2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F5F5F5' } };
+        worksheet.getRow(index + 2).fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "F5F5F5" }
+        };
       }
     });
-    
+
     // Add conditional formatting for receipt status
     worksheet.addConditionalFormatting({
       ref: `K2:K${data.length + 1}`,
       rules: [
         {
-          type: 'containsText',
-          operator: 'containsText',
-          text: 'Available',
-          style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'C6EFCE' } } }
+          type: "containsText",
+          operator: "containsText",
+          text: "Available",
+          style: { fill: { type: "pattern", pattern: "solid", bgColor: { argb: "C6EFCE" } } }
         },
         {
-          type: 'containsText',
-          operator: 'containsText',
-          text: 'Missing',
-          style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFC7CE' } } }
+          type: "containsText",
+          operator: "containsText",
+          text: "Missing",
+          style: { fill: { type: "pattern", pattern: "solid", bgColor: { argb: "FFC7CE" } } }
         },
         {
-          type: 'containsText',
-          operator: 'containsText',
-          text: 'Failed',
-          style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFEB9C' } } }
+          type: "containsText",
+          operator: "containsText",
+          text: "Failed",
+          style: { fill: { type: "pattern", pattern: "solid", bgColor: { argb: "FFEB9C" } } }
         }
       ]
     });
-    
+
     return workbook;
   }
 
@@ -529,16 +533,16 @@
     try {
       // Fetch the file using the browser's fetch API
       const response = await fetch(url);
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
       }
-      
+
       // Get the array buffer from the response
       const arrayBuffer = await response.arrayBuffer();
       return arrayBuffer;
     } catch (error) {
-      console.error('Error fetching file:', error);
+      console.error("Error fetching file:", error);
       return null;
     }
   }
@@ -547,44 +551,44 @@
     try {
       // Create a new image element
       const img = new Image();
-      
+
       // Wait for the image to load
       await new Promise((resolve, reject) => {
         img.onload = resolve;
         img.onerror = reject;
         img.src = imageUrl;
       });
-      
+
       // Calculate dimensions (maintain aspect ratio)
       const imgWidth = img.width;
       const imgHeight = img.height;
       const pageWidth = 210; // A4 width in mm
-      
+
       // Calculate height based on A4 width and original aspect ratio
       const pageHeight = (pageWidth * imgHeight) / imgWidth;
-      
+
       // Create PDF with calculated dimensions
       const pdf = new jsPDF({
-        orientation: pageHeight > pageWidth ? 'portrait' : 'landscape',
-        unit: 'mm',
+        orientation: pageHeight > pageWidth ? "portrait" : "landscape",
+        unit: "mm",
         format: [pageWidth, pageHeight]
       });
-      
+
       // Add image to PDF (convert dimensions to mm)
-      pdf.addImage(img, 'JPEG', 0, 0, pageWidth, pageHeight);
-      
+      pdf.addImage(img, "JPEG", 0, 0, pageWidth, pageHeight);
+
       // Convert PDF to ArrayBuffer
-      const pdfArrayBuffer = pdf.output('arraybuffer');
+      const pdfArrayBuffer = pdf.output("arraybuffer");
       return pdfArrayBuffer;
     } catch (error) {
-      console.error('Error converting image to PDF:', error);
+      console.error("Error converting image to PDF:", error);
       return null;
     }
   }
 
   function isFileTypePdf(url: string | null | undefined): boolean {
     if (!url) return false;
-    return url.toLowerCase().endsWith('.pdf');
+    return url.toLowerCase().endsWith(".pdf");
   }
 
   async function generateSummary() {
@@ -598,40 +602,46 @@
     try {
       const startDate = summaryStartDate.toDate(getLocalTimeZone());
       const endDate = summaryEndDate.toDate(getLocalTimeZone());
-      
+
       // Set start date to beginning of day (00:00:00) and end date to end of day (23:59:59)
       startDate.setHours(0, 0, 0, 0);
       endDate.setHours(23, 59, 59, 999);
-      
+
       // Format start and end dates for the PocketBase filter
       // Ensure consistent UTC format for querying
       const startISO = startDate.toISOString();
       const endISO = endDate.toISOString();
-      
+
       console.log("Date range:", startISO, "to", endISO);
-      
-      const periodStr = `${startDate.getFullYear()}-${(startDate.getMonth() + 1).toString().padStart(2, '0')}`;
-      
+
+      const periodStr = `${startDate.getFullYear()}-${(startDate.getMonth() + 1).toString().padStart(2, "0")}`;
+
       // Get all expenses first
-      const expensesResult = await client.collection("expenses").getList<ExpensesResponseWithExpand>(1, 1000, {
-        sort: "datetime",
-        expand: "customer,expense_type,user"
-      });
-      
+      const expensesResult = await client
+        .collection("expenses")
+        .getList<ExpensesResponseWithExpand>(1, 1000, {
+          sort: "datetime",
+          expand: "customer,expense_type,user"
+        });
+
       // Filter locally to ensure all expenses within range are included
-      const filteredExpenses = expensesResult.items.filter(expense => {
+      const filteredExpenses = expensesResult.items.filter((expense) => {
         const expenseDate = new Date(expense.datetime);
         return expenseDate >= startDate && expenseDate <= endDate;
       });
-      
-      console.log(`Found ${filteredExpenses.length} expenses in date range from ${expensesResult.items.length} total`);
-      
+
+      console.log(
+        `Found ${filteredExpenses.length} expenses in date range from ${expensesResult.items.length} total`
+      );
+
       // Prepare data for Excel - include ALL expenses regardless of receipt status
       const excelData = filteredExpenses.map((expense, index) => {
         const receiptStatus = expense.picture ? "Available" : "Missing";
-        const fileUrl = expense.picture ? getFileUrl(expense.collectionId, expense.id, expense.picture) : "";
+        const fileUrl = expense.picture
+          ? getFileUrl(expense.collectionId, expense.id, expense.picture)
+          : "";
         const isPdf = isFileTypePdf(expense.picture);
-        
+
         return {
           pdf_index: index,
           id: expense.id,
@@ -645,74 +655,73 @@
           amount: expense.amount,
           company_credit_card: expense.company_credit_card ? "Yes" : "No",
           receipt_status: receiptStatus,
-          file_type: expense.picture ? (isPdf ? 'pdf' : 'image') : ''
+          file_type: expense.picture ? (isPdf ? "pdf" : "image") : ""
         };
       });
-      
+
       // Create Excel workbook with ALL expenses
       const workbook = createExcelWorkbook(excelData);
-      
+
       // Create ZIP file with Excel and PDFs
       const zip = new JSZip();
-      
+
       // Add Excel file to ZIP
       const excelBuffer = await workbook.xlsx.writeBuffer();
       zip.file(`processed_expenses_${periodStr}.xlsx`, excelBuffer);
-      
+
       // Create a folder for receipts
       const receiptsFolder = zip.folder("receipts");
-      
+
       // Count total files to process for progress tracking - only process expenses WITH receipts
-      const filesToProcess = excelData.filter(row => row.receipt_status === "Available");
+      const filesToProcess = excelData.filter((row) => row.receipt_status === "Available");
       totalFiles = filesToProcess.length;
       processedFiles = 0;
-      
+
       // Add PDFs to ZIP - only for expenses WITH receipts
       if (receiptsFolder) {
-        const filePromises = filesToProcess
-          .map(async (row) => {
-            try {
-              const isPdf = isFileTypePdf(row.picture_filename);
-              const fileName = `${String(row.pdf_index).padStart(4, '0')}_${row.date}_${row.id}.pdf`;
-              
-              // For PDFs, add them directly
-              if (isPdf) {
-                const fileData = await fetchFileFromUrl(row.picture);
-                if (fileData) {
-                  receiptsFolder.file(fileName, fileData);
-                  processedFiles++;
-                  processingProgress = Math.round((processedFiles / totalFiles) * 100);
-                  return true;
-                }
-              } 
-              // For images, convert to PDF first
-              else {
-                const pdfData = await convertImageToPdf(row.picture);
-                if (pdfData) {
-                  receiptsFolder.file(fileName, pdfData);
-                  processedFiles++;
-                  processingProgress = Math.round((processedFiles / totalFiles) * 100);
-                  return true;
-                }
+        const filePromises = filesToProcess.map(async (row) => {
+          try {
+            const isPdf = isFileTypePdf(row.picture_filename);
+            const fileName = `${String(row.pdf_index).padStart(4, "0")}_${row.date}_${row.id}.pdf`;
+
+            // For PDFs, add them directly
+            if (isPdf) {
+              const fileData = await fetchFileFromUrl(row.picture);
+              if (fileData) {
+                receiptsFolder.file(fileName, fileData);
+                processedFiles++;
+                processingProgress = Math.round((processedFiles / totalFiles) * 100);
+                return true;
               }
-              return false;
-            } catch (error) {
-              console.error(`Failed to process file for expense ${row.id}:`, error);
-              processedFiles++;
-              processingProgress = Math.round((processedFiles / totalFiles) * 100);
-              return false;
             }
-          });
-        
+            // For images, convert to PDF first
+            else {
+              const pdfData = await convertImageToPdf(row.picture);
+              if (pdfData) {
+                receiptsFolder.file(fileName, pdfData);
+                processedFiles++;
+                processingProgress = Math.round((processedFiles / totalFiles) * 100);
+                return true;
+              }
+            }
+            return false;
+          } catch (error) {
+            console.error(`Failed to process file for expense ${row.id}:`, error);
+            processedFiles++;
+            processingProgress = Math.round((processedFiles / totalFiles) * 100);
+            return false;
+          }
+        });
+
         await Promise.all(filePromises);
       }
-      
+
       // Generate the ZIP file
       const zipContent = await zip.generateAsync({ type: "blob" });
-      
+
       // Trigger download
       saveAs(zipContent, `processed_expenses_${periodStr}.zip`);
-      
+
       toast.success("Summary generated successfully!");
       summaryDialogOpen = false;
     } catch (error) {
@@ -768,7 +777,7 @@
     {#if client.authStore.model && client.authStore.model.admin}
       <div class="flex gap-2">
         <Button variant="outline" on:click={() => drawerOpen.set(true)}>Download CSV</Button>
-        <Button variant="outline" on:click={() => summaryDialogOpen = true}>
+        <Button variant="outline" on:click={() => (summaryDialogOpen = true)}>
           <FileText class="h-4 w-4 mr-2" />
           Generate PDF Summary
         </Button>
@@ -852,11 +861,7 @@
                           />
                         </div>
                         <div>
-                          <img
-                            src={expense.picture}
-                            alt="Expense receipt"
-                            class="max-h-[80vh]"
-                          />
+                          <img src={expense.picture} alt="Expense receipt" class="max-h-[80vh]" />
                         </div>
                       </Lightbox>
                     {/if}
@@ -924,11 +929,7 @@
                     />
                   </div>
                   <div>
-                    <img
-                      src={expense.picture}
-                      alt="Expense receipt"
-                      class="max-h-[80vh]"
-                    />
+                    <img src={expense.picture} alt="Expense receipt" class="max-h-[80vh]" />
                   </div>
                 </Lightbox>
               {/if}
@@ -1213,7 +1214,8 @@
     <Dialog.Header>
       <Dialog.Title>Generate Expense Summary</Dialog.Title>
       <Dialog.Description>
-        Select a date range to generate a ZIP file containing an Excel summary and PDF files for all expenses with receipts.
+        Select a date range to generate a ZIP file containing an Excel summary and PDF files for all
+        expenses with receipts.
       </Dialog.Description>
     </Dialog.Header>
     <div class="grid gap-4 py-4">
@@ -1238,10 +1240,7 @@
             </Button>
           </Popover.Trigger>
           <Popover.Content class="w-auto p-0" align="start">
-            <Calendar
-              bind:value={summaryStartDate}
-              initialFocus
-            />
+            <Calendar bind:value={summaryStartDate} initialFocus />
           </Popover.Content>
         </Popover.Root>
       </div>
@@ -1266,14 +1265,11 @@
             </Button>
           </Popover.Trigger>
           <Popover.Content class="w-auto p-0" align="start">
-            <Calendar
-              bind:value={summaryEndDate}
-              initialFocus
-            />
+            <Calendar bind:value={summaryEndDate} initialFocus />
           </Popover.Content>
         </Popover.Root>
       </div>
-      
+
       {#if summaryGenerating}
         <div class="mt-2">
           <div class="mb-2 flex justify-between text-sm text-muted-foreground">
@@ -1290,7 +1286,11 @@
       {/if}
     </div>
     <Dialog.Footer>
-      <Button variant="outline" on:click={() => summaryDialogOpen = false} disabled={summaryGenerating}>
+      <Button
+        variant="outline"
+        on:click={() => (summaryDialogOpen = false)}
+        disabled={summaryGenerating}
+      >
         Cancel
       </Button>
       <Button on:click={generateSummary} disabled={summaryGenerating}>
