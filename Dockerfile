@@ -7,7 +7,7 @@ RUN apk --no-cache add upx make git gcc libtool musl-dev ca-certificates dumb-in
   && CGO_ENABLED=0 go build \
   && upx spesr
 
-FROM node:lts-slim as ui-builder
+FROM node:20-slim as ui-builder
 WORKDIR /build
 COPY ./sk/package*.json ./
 RUN rm -rf ./node_modules
