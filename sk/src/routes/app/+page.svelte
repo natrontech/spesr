@@ -33,7 +33,10 @@
     ChevronUp,
     Edit2,
     Trash2,
-    Check
+    Check,
+    FileText,
+    Download,
+    Loader2
   } from "lucide-svelte";
   import { Card } from "$lib/components/ui/card";
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
@@ -43,6 +46,10 @@
   import { tick } from "svelte";
   import { Calendar } from "$lib/components/ui/calendar/index.js";
   import { CaretSort } from "svelte-radix";
+  // @ts-ignore
+  import ExcelJS from 'exceljs';
+  import JSZip from 'jszip';
+  import type { ExpensesResponseWithExpand } from "$lib/pocketbase/generated-types";
 
   interface Expense {
     collectionId: string;
@@ -59,6 +66,7 @@
     datetime: string;
     expense_type: string;
     customer_id: string;
+    picture_filename: string;
   }
 
   type SortableField =
@@ -251,6 +259,7 @@
     }),
     datetime: expense.datetime,
     picture: expense.picture ? getFileUrl(expense.collectionId, expense.id, expense.picture) : "",
+    picture_filename: expense.picture || "",
     company_credit_card: expense.company_credit_card,
     // @ts-expect-error - expense type is not null
     user: expense.expand.user.name
@@ -331,8 +340,14 @@
 
   function handleFileChange(event: Event) {
     const input = event.target as HTMLInputElement;
-    if (input?.files?.length) {
-      newPicture = input.files[0];
+    if (input.files && input.files[0]) {
+      const file = input.files[0];
+      if (file.type === 'application/pdf' || file.type.startsWith('image/')) {
+        newPicture = file;
+      } else {
+        toast.error("Please upload a PDF or image file.");
+        input.value = '';
+      }
     }
   }
 
@@ -408,6 +423,222 @@
     downloadCSV();
     drawerOpen.set(false);
   }
+
+  let summaryDialogOpen = false;
+  let summaryStartDate: DateValue | undefined = undefined;
+  let summaryEndDate: DateValue | undefined = undefined;
+  let summaryGenerating = false;
+  let dateOpen = false;
+  let startDateOpen = false;
+  let endDateOpen = false;
+
+  // Swiss German Calendar
+  const df = new DateFormatter("de-CH", {
+    dateStyle: "long"
+  });
+
+  function formatDateString(dateString: string): string {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("de-CH");
+  }
+
+  interface ExcelRowData {
+    pdf_index: number;
+    id: string;
+    date: string;
+    customer: string;
+    user: string;
+    picture: string;
+    type: string;
+    description: string;
+    amount: number;
+    company_credit_card: string;
+    receipt_status: string;
+    file_type: string;
+  }
+
+  function createExcelWorkbook(data: ExcelRowData[]) {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Sheet1');
+    
+    // Add column headers
+    worksheet.columns = [
+      { header: 'PDF Index', key: 'pdf_index', width: 10 },
+      { header: 'ID', key: 'id', width: 25 },
+      { header: 'Date', key: 'date', width: 12 },
+      { header: 'Customer', key: 'customer', width: 25 },
+      { header: 'User', key: 'user', width: 15 },
+      { header: 'Picture', key: 'picture', width: 30 },
+      { header: 'Type', key: 'type', width: 20 },
+      { header: 'Description', key: 'description', width: 30 },
+      { header: 'Amount', key: 'amount', width: 12 },
+      { header: 'Company Card', key: 'company_credit_card', width: 15 },
+      { header: 'Receipt Status', key: 'receipt_status', width: 15 },
+      { header: 'File Type', key: 'file_type', width: 10 }
+    ];
+    
+    // Format header row
+    worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFF' } };
+    worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '2C3E50' } };
+    worksheet.getRow(1).alignment = { horizontal: 'center', vertical: 'middle' };
+    
+    // Add data rows
+    data.forEach((row, index) => {
+      worksheet.addRow(row);
+      
+      // Add alternating row colors
+      if (index % 2 === 1) {
+        worksheet.getRow(index + 2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F5F5F5' } };
+      }
+    });
+    
+    // Add conditional formatting for receipt status
+    worksheet.addConditionalFormatting({
+      ref: `K2:K${data.length + 1}`,
+      rules: [
+        {
+          type: 'containsText',
+          operator: 'containsText',
+          text: 'Available',
+          style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'C6EFCE' } } }
+        },
+        {
+          type: 'containsText',
+          operator: 'containsText',
+          text: 'Missing',
+          style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFC7CE' } } }
+        },
+        {
+          type: 'containsText',
+          operator: 'containsText',
+          text: 'Failed',
+          style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFEB9C' } } }
+        }
+      ]
+    });
+    
+    return workbook;
+  }
+
+  async function fetchFileFromUrl(url: string): Promise<ArrayBuffer | null> {
+    try {
+      // Fetch the file using the browser's fetch API
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
+      }
+      
+      // Get the array buffer from the response
+      const arrayBuffer = await response.arrayBuffer();
+      return arrayBuffer;
+    } catch (error) {
+      console.error('Error fetching file:', error);
+      return null;
+    }
+  }
+
+  function isFileTypePdf(url: string | null | undefined): boolean {
+    if (!url) return false;
+    return url.toLowerCase().endsWith('.pdf');
+  }
+
+  async function generateSummary() {
+    if (!summaryStartDate || !summaryEndDate) {
+      toast.error("Please select a date range");
+      return;
+    }
+
+    summaryGenerating = true;
+    try {
+      const startDate = summaryStartDate.toDate(getLocalTimeZone());
+      const endDate = summaryEndDate.toDate(getLocalTimeZone());
+      const periodStr = `${startDate.getFullYear()}-${startDate.getMonth() + 1}`;
+      
+      // Get expenses for the selected date range
+      const expensesResult = await client.collection("expenses").getList<ExpensesResponseWithExpand>(1, 1000, {
+        filter: `datetime >= "${startDate.toISOString()}" && datetime <= "${endDate.toISOString()}"`,
+        sort: "datetime",
+        expand: "customer,expense_type,user"
+      });
+      
+      // Prepare data for Excel
+      const excelData = expensesResult.items.map((expense, index) => {
+        const receiptStatus = expense.picture ? "Available" : "Missing";
+        const fileUrl = expense.picture ? getFileUrl(expense.collectionId, expense.id, expense.picture) : "";
+        const isPdf = isFileTypePdf(expense.picture);
+        
+        return {
+          pdf_index: index,
+          id: expense.id,
+          date: formatDateString(expense.datetime),
+          customer: expense.expand?.customer?.name || "",
+          user: expense.expand?.user?.name || "",
+          picture: fileUrl,
+          picture_filename: expense.picture || "",
+          type: expense.expand?.expense_type?.name || "",
+          description: expense.description || "",
+          amount: expense.amount,
+          company_credit_card: expense.company_credit_card ? "Yes" : "No",
+          receipt_status: receiptStatus,
+          file_type: expense.picture ? (isPdf ? 'pdf' : 'image') : ''
+        };
+      });
+      
+      // Create Excel workbook
+      const workbook = createExcelWorkbook(excelData);
+      
+      // Create ZIP file with Excel and PDFs
+      const zip = new JSZip();
+      
+      // Add Excel file to ZIP
+      const excelBuffer = await workbook.xlsx.writeBuffer();
+      zip.file(`processed_expenses_${periodStr}.xlsx`, excelBuffer);
+      
+      // Create a folder for receipts
+      const receiptsFolder = zip.folder("receipts");
+      
+      // Add PDFs to ZIP
+      if (receiptsFolder) {
+        const filePromises = excelData
+          .filter(row => row.receipt_status === "Available")
+          .map(async (row, index) => {
+            try {
+              // Get the file data, whether it's a PDF or image
+              const fileData = await fetchFileFromUrl(row.picture);
+              if (fileData) {
+                const isPdf = isFileTypePdf(row.picture_filename);
+                const fileName = `${String(index).padStart(4, '0')}_${row.date}_${row.id}${isPdf ? '.pdf' : '.jpg'}`;
+                
+                // Simply add the file with its original extension
+                receiptsFolder.file(fileName, fileData);
+                return true;
+              }
+              return false;
+            } catch (error) {
+              console.error(`Failed to fetch file for expense ${row.id}:`, error);
+              return false;
+            }
+          });
+        
+        await Promise.all(filePromises);
+      }
+      
+      // Generate the ZIP file
+      const zipContent = await zip.generateAsync({ type: "blob" });
+      
+      // Trigger download
+      saveAs(zipContent, `processed_expenses_${periodStr}.zip`);
+      
+      toast.success("Summary generated successfully!");
+      summaryDialogOpen = false;
+    } catch (error) {
+      console.error("Error generating summary:", error);
+      toast.error("Failed to generate summary");
+    } finally {
+      summaryGenerating = false;
+    }
+  }
 </script>
 
 <div class="container mx-auto py-6 px-4">
@@ -452,7 +683,13 @@
       </DropdownMenu.Root>
     </div>
     {#if client.authStore.model && client.authStore.model.admin}
-      <Button variant="outline" on:click={() => drawerOpen.set(true)}>Download CSV</Button>
+      <div class="flex gap-2">
+        <Button variant="outline" on:click={() => drawerOpen.set(true)}>Download CSV</Button>
+        <Button variant="outline" on:click={() => summaryDialogOpen = true}>
+          <FileText class="h-4 w-4 mr-2" />
+          Generate PDF Summary
+        </Button>
+      </div>
     {/if}
   </div>
 
@@ -512,16 +749,35 @@
             <Table.Cell>
               <div class="flex justify-end gap-2">
                 {#if expense.picture}
-                  <Lightbox>
-                    <div slot="thumbnail">
-                      <Button variant="ghost" size="icon">
-                        <Camera class="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <div>
-                      <img src={expense.picture} alt="Expense receipt" class="max-h-[80vh]" />
-                    </div>
-                  </Lightbox>
+                  <div class="flex items-center space-x-2">
+                    {#if isFileTypePdf(expense.picture_filename)}
+                      <a
+                        href={expense.picture}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="text-blue-500 hover:text-blue-700"
+                      >
+                        View PDF
+                      </a>
+                    {:else}
+                      <Lightbox>
+                        <div slot="thumbnail">
+                          <img
+                            src={expense.picture}
+                            alt="Expense receipt"
+                            class="w-16 h-16 object-cover rounded cursor-pointer"
+                          />
+                        </div>
+                        <div>
+                          <img
+                            src={expense.picture}
+                            alt="Expense receipt"
+                            class="max-h-[80vh]"
+                          />
+                        </div>
+                      </Lightbox>
+                    {/if}
+                  </div>
                 {/if}
                 <Button variant="ghost" size="icon" on:click={() => handleEditClick(expense)}>
                   <Edit2 class="h-4 w-4" />
@@ -565,18 +821,35 @@
 
         {#if expense.picture}
           <div class="mb-3 w-full">
-            <Lightbox>
-              <div slot="thumbnail">
-                <img
-                  src={expense.picture}
-                  alt="Expense receipt"
-                  class="w-full h-20 object-cover rounded-lg"
-                />
-              </div>
-              <div>
-                <img src={expense.picture} alt="Expense receipt" class="max-h-[80vh]" />
-              </div>
-            </Lightbox>
+            <div class="flex items-center space-x-2">
+              {#if isFileTypePdf(expense.picture_filename)}
+                <a
+                  href={expense.picture}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-blue-500 hover:text-blue-700"
+                >
+                  View PDF
+                </a>
+              {:else}
+                <Lightbox>
+                  <div slot="thumbnail">
+                    <img
+                      src={expense.picture}
+                      alt="Expense receipt"
+                      class="w-full h-20 object-cover rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <img
+                      src={expense.picture}
+                      alt="Expense receipt"
+                      class="max-h-[80vh]"
+                    />
+                  </div>
+                </Lightbox>
+              {/if}
+            </div>
           </div>
         {/if}
 
@@ -762,13 +1035,8 @@
               id="edit-picture"
               type="file"
               class="file-input"
-              accept="image/*"
-              on:change={(event) => {
-                if (event.target) {
-                  // @ts-expect-error - event.target.files is a FileList
-                  newPicture = event.target.files[0];
-                }
-              }}
+              accept="image/*,application/pdf"
+              on:change={handleFileChange}
             />
             <label
               for="edit-picture"
@@ -856,6 +1124,89 @@
     </Drawer.Content>
   </Drawer.Root>
 {/if}
+
+<Dialog.Root bind:open={summaryDialogOpen}>
+  <Dialog.Content>
+    <Dialog.Header>
+      <Dialog.Title>Generate Expense Summary</Dialog.Title>
+      <Dialog.Description>
+        Select a date range to generate a ZIP file containing an Excel summary and PDF files for all expenses with receipts.
+      </Dialog.Description>
+    </Dialog.Header>
+    <div class="grid gap-4 py-4">
+      <div class="grid gap-2">
+        <Label for="start-date">Start Date</Label>
+        <Popover.Root bind:open={startDateOpen}>
+          <Popover.Trigger asChild let:builder>
+            <Button
+              builders={[builder]}
+              variant="outline"
+              class={cn(
+                "w-full justify-start text-left font-normal",
+                !summaryStartDate && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon class="mr-2 h-4 w-4" />
+              {#if summaryStartDate}
+                {df.format(summaryStartDate.toDate(getLocalTimeZone()))}
+              {:else}
+                <span>Pick a date</span>
+              {/if}
+            </Button>
+          </Popover.Trigger>
+          <Popover.Content class="w-auto p-0" align="start">
+            <Calendar
+              bind:value={summaryStartDate}
+              initialFocus
+            />
+          </Popover.Content>
+        </Popover.Root>
+      </div>
+      <div class="grid gap-2">
+        <Label for="end-date">End Date</Label>
+        <Popover.Root bind:open={endDateOpen}>
+          <Popover.Trigger asChild let:builder>
+            <Button
+              builders={[builder]}
+              variant="outline"
+              class={cn(
+                "w-full justify-start text-left font-normal",
+                !summaryEndDate && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon class="mr-2 h-4 w-4" />
+              {#if summaryEndDate}
+                {df.format(summaryEndDate.toDate(getLocalTimeZone()))}
+              {:else}
+                <span>Pick a date</span>
+              {/if}
+            </Button>
+          </Popover.Trigger>
+          <Popover.Content class="w-auto p-0" align="start">
+            <Calendar
+              bind:value={summaryEndDate}
+              initialFocus
+            />
+          </Popover.Content>
+        </Popover.Root>
+      </div>
+    </div>
+    <Dialog.Footer>
+      <Button variant="outline" on:click={() => summaryDialogOpen = false}>
+        Cancel
+      </Button>
+      <Button on:click={generateSummary} disabled={summaryGenerating}>
+        {#if summaryGenerating}
+          <Loader2 class="h-4 w-4 mr-2 animate-spin" />
+          Generating...
+        {:else}
+          <Download class="h-4 w-4 mr-2" />
+          Generate ZIP Package
+        {/if}
+      </Button>
+    </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>
 
 <style>
   .file-input-wrapper {

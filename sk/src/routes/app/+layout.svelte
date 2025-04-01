@@ -158,6 +158,20 @@
   let amount = 0;
   let companyCreditCard = false;
 
+  function handleFileChange(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files[0]) {
+      const file = input.files[0];
+      if (file.type === 'application/pdf' || file.type.startsWith('image/')) {
+        pictureFile = file;
+        picture = URL.createObjectURL(file);
+      } else {
+        toast.error("Please upload a PDF or image file.");
+        input.value = '';
+      }
+    }
+  }
+
   async function handleSubmit(event: Event) {
     event.preventDefault();
 
@@ -381,12 +395,7 @@
             type="file"
             class="file-input"
             bind:value={picture}
-            on:change={(event) => {
-              if (event.target) {
-                // @ts-expect-error - event.target.files is a FileList
-                pictureFile = event.target.files[0];
-              }
-            }}
+            on:change={handleFileChange}
           />
           <label for="picture" class="file-input-button">
             <Camera class="h-6 w-6 mr-2" /> Upload Picture

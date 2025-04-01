@@ -70,6 +70,16 @@ export type ExpensesResponse<Texpand = unknown> = Required<ExpensesRecord> &
   BaseSystemFields<Texpand>;
 export type UsersResponse<Texpand = unknown> = Required<UsersRecord> & AuthSystemFields<Texpand>;
 
+// Define expand types for collections
+export interface ExpenseExpand {
+  customer?: CustomersResponse;
+  expense_type?: ExpenseTypesResponse;
+  user?: UsersResponse;
+}
+
+// Updated response types with expand
+export type ExpensesResponseWithExpand = ExpensesResponse<ExpenseExpand>;
+
 // Types containing all Records and Responses, useful for creating typing helper functions
 
 export type CollectionRecords = {
