@@ -24,6 +24,7 @@
   import { updateDataStores, UpdateFilterEnum } from "$lib/stores/data/load";
   import * as Dialog from "$lib/components/ui/dialog";
   import { expenses } from "$lib/stores/data/expenses";
+  import { getExpenseUnit } from "$lib/utils/expense.utils";
 
   interface ParsedItem {
     value: string;
@@ -144,6 +145,11 @@
   $: selectedExpenseTypeValue =
     parsedExpenseTypes.find((f) => f.value === expenseTypeValue)?.label ??
     "Select an expense type...";
+
+  $: currentExpenseUnit =
+    selectedExpenseTypeValue !== "Select an expense type..."
+      ? getExpenseUnit(selectedExpenseTypeValue)
+      : "CHF";
 
   function closeExpenseTypeCombobox(triggerId: string) {
     expenseTypeOpen = false;
@@ -403,7 +409,7 @@
         </div>
       </div>
       <div class="grid gap-2">
-        <Label for="amount">Amount (KM / CHF)</Label>
+        <Label for="amount">Amount ({currentExpenseUnit})</Label>
         <Input id="amount" type="number" step="0.01" bind:value={amount} />
       </div>
       <div class="items-top flex space-x-2">

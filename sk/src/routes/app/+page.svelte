@@ -52,6 +52,7 @@
   import type { ExpensesResponseWithExpand } from "$lib/pocketbase/generated-types";
   // @ts-ignore
   import { jsPDF } from "jspdf";
+  import { getExpenseUnit, formatExpenseAmount } from "$lib/utils/expense.utils";
 
   interface Expense {
     collectionId: string;
@@ -115,6 +116,8 @@
   let customerValue = "";
   let expenseTypeOpen = false;
   let expenseTypeValue = "";
+
+  $: editExpenseUnit = editingExpense ? getExpenseUnit(editingExpense.type) : "CHF";
 
   // For frequency tracking
   $: {
@@ -416,7 +419,12 @@
       );
     });
 
-    const csv = Papa.unparse(filteredExpenses);
+    const csvData = filteredExpenses.map((expense) => ({
+      ...expense,
+      amount: formatExpenseAmount(expense.amount, expense.type)
+    }));
+
+    const csv = Papa.unparse(csvData);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     saveAs(blob, `expenses_${selectedYear}-${selectedMonth}.csv`);
   }
@@ -456,7 +464,7 @@
     picture: string;
     type: string;
     description: string;
-    amount: number;
+    amount: string;
     company_credit_card: string;
     receipt_status: string;
     file_type: string;
@@ -642,6 +650,7 @@
           : "";
         const isPdf = isFileTypePdf(expense.picture);
 
+        const expenseTypeName = expense.expand?.expense_type?.name || "";
         return {
           pdf_index: index,
           id: expense.id,
@@ -650,9 +659,9 @@
           user: expense.expand?.user?.name || "",
           picture: fileUrl,
           picture_filename: expense.picture || "",
-          type: expense.expand?.expense_type?.name || "",
+          type: expenseTypeName,
           description: expense.description || "",
-          amount: expense.amount,
+          amount: formatExpenseAmount(expense.amount, expenseTypeName),
           company_credit_card: expense.company_credit_card ? "Yes" : "No",
           receipt_status: receiptStatus,
           file_type: expense.picture ? (isPdf ? "pdf" : "image") : ""
@@ -821,7 +830,9 @@
             <Table.Cell>{expense.date}</Table.Cell>
             <Table.Cell>{expense.type}</Table.Cell>
             <Table.Cell>{expense.description}</Table.Cell>
-            <Table.Cell class="text-right font-medium">{expense.amount.toFixed(2)} CHF</Table.Cell>
+            <Table.Cell class="text-right font-medium"
+              >{formatExpenseAmount(expense.amount, expense.type)}</Table.Cell
+            >
             <Table.Cell>
               {#if expense.company_credit_card}
                 <span
@@ -889,7 +900,7 @@
           <div class="flex items-center justify-between">
             <span class="font-medium">{expense.customer}</span>
             <div class="text-right font-medium">
-              {expense.amount.toFixed(2)} CHF
+              {formatExpenseAmount(expense.amount, expense.type)}
             </div>
           </div>
           <div>
@@ -1067,6 +1078,7 @@
                       if (editingExpense) {
                         editingExpense.expense_type = expenseType.value;
                         editingExpense.type = expenseType.label;
+                        editExpenseUnit = getExpenseUnit(expenseType.label);
                         closeExpenseTypeCombobox(ids.trigger);
                       }
                     }}
@@ -1095,7 +1107,7 @@
           <Input id="edit-description" bind:value={editingExpense.description} />
         </div>
         <div class="grid gap-2">
-          <Label for="edit-amount">Amount (CHF)</Label>
+          <Label for="edit-amount">Amount ({editExpenseUnit})</Label>
           <Input id="edit-amount" type="number" step="0.01" bind:value={editingExpense.amount} />
         </div>
         <div class="grid gap-2">
@@ -1153,7 +1165,7 @@
       <AlertDialog.Description>
         This action cannot be undone. This will permanently delete the expense
         {#if expenseToDelete}
-          for {expenseToDelete.amount.toFixed(2)} CHF from {expenseToDelete.customer}.
+          for {formatExpenseAmount(expenseToDelete.amount, expenseToDelete.type)} from {expenseToDelete.customer}.
         {/if}
       </AlertDialog.Description>
     </AlertDialog.Header>
