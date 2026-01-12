@@ -16,13 +16,20 @@ const config: UserConfig = {
   plugins: [sveltekit()],
   server: {
     proxy: {
-      // proxy "/api" and "/_" to pocketbase_url
       "/api": pocketbase_url,
       "/_": pocketbase_url
     },
     headers: {
       "Cross-Origin-Embedder-Policy": "require-corp",
       "Cross-Origin-Opener-Policy": "same-origin"
+    },
+    hmr: {
+      protocol: "ws",
+      host: "localhost"
+    },
+    watch: {
+      usePolling: false,
+      interval: 100
     }
   }
 };

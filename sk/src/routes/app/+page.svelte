@@ -39,12 +39,12 @@
     Loader2
   } from "lucide-svelte";
   import { Card } from "$lib/components/ui/card";
-  import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
   import * as Popover from "$lib/components/ui/popover/index.js";
   import * as Command from "$lib/components/ui/command/index.js";
   import { cn } from "$lib/utils";
   import { tick } from "svelte";
   import { Calendar } from "$lib/components/ui/calendar/index.js";
+  import * as Select from "$lib/components/ui/select/index.js";
   import { CaretSort } from "svelte-radix";
   // @ts-ignore
   import ExcelJS from "exceljs";
@@ -53,6 +53,7 @@
   // @ts-ignore
   import { jsPDF } from "jspdf";
   import { getExpenseUnit, formatExpenseAmount } from "$lib/utils/expense.utils";
+  import CustomerManagementDialog from "$lib/components/customer-management-dialog.svelte";
 
   interface Expense {
     collectionId: string;
@@ -91,8 +92,16 @@
   const currentMonth = currentDate.getMonth();
   const currentYear = currentDate.getFullYear();
 
-  let selectedFilterMonth: string = currentMonth.toString();
-  let selectedFilterYear: number = currentYear;
+  let selectedFilterMonth: number | undefined = currentMonth;
+  let selectedFilterYear: number | undefined = currentYear;
+  let filterDateOpen = false;
+
+  $: selectedMonthDisplay =
+    selectedFilterMonth !== undefined
+      ? new Date(2000, selectedFilterMonth, 1).toLocaleDateString("de-CH", { month: "long" })
+      : "Month";
+  $: selectedYearDisplay =
+    selectedFilterYear !== undefined ? selectedFilterYear.toString() : "Year";
   let selectedMonth: string = (currentMonth + 1).toString().padStart(2, "0");
   let selectedYear: string = currentYear.toString();
 
@@ -111,6 +120,7 @@
   let parsedExpenseTypes: Array<{ value: string; label: string; frequency: number }> = [];
   let editCustomerOpen = false;
   let editExpenseTypeOpen = false;
+  let customerManagementDialogOpen = false;
 
   let customerOpen = false;
   let customerValue = "";
@@ -271,9 +281,12 @@
   }));
 
   $: filteredByMonthExpenses = tempExpenses.filter((expense) => {
-    if (selectedFilterMonth === "all") return true;
+    if (selectedFilterMonth === undefined || selectedFilterYear === undefined) return true;
     const expenseDate = new Date(expense.datetime);
-    return expenseDate.getMonth() === parseInt(selectedFilterMonth);
+    return (
+      expenseDate.getMonth() === selectedFilterMonth &&
+      expenseDate.getFullYear() === selectedFilterYear
+    );
   });
 
   $: sortedAndFilteredExpenses = filteredByMonthExpenses
@@ -749,39 +762,95 @@
         <Search class="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input type="text" placeholder="Search expenses..." class="pl-8" bind:value={searchQuery} />
       </div>
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger asChild let:builder>
-          <Button variant="outline" builders={[builder]} class="w-[180px]">
-            {#if selectedFilterMonth === "all"}
-              All Expenses
-            {:else}
-              {new Date(selectedFilterYear, parseInt(selectedFilterMonth), 1).toLocaleDateString(
-                "de-CH",
-                { month: "long", year: "numeric" }
-              )}
-            {/if}
-            <ChevronDown class="ml-2 h-4 w-4" />
+      <Button variant="outline" on:click={() => (customerManagementDialogOpen = true)}>
+        Manage Customers
+      </Button>
+      <Popover.Root bind:open={filterDateOpen}>
+        <Popover.Trigger asChild let:builder>
+          <Button
+            variant="outline"
+            builders={[builder]}
+            class={cn(
+              "w-[300px] justify-between text-left font-normal",
+              (selectedFilterMonth === undefined || selectedFilterYear === undefined) &&
+                "text-muted-foreground"
+            )}
+          >
+            <span class="flex items-center">
+              <CalendarIcon class="mr-2 h-4 w-4" />
+              {#if selectedFilterMonth !== undefined && selectedFilterYear !== undefined}
+                {new Date(selectedFilterYear, selectedFilterMonth, 1).toLocaleDateString("de-CH", {
+                  month: "long",
+                  year: "numeric"
+                })}
+              {:else}
+                All Expenses
+              {/if}
+            </span>
+            <ChevronDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Content align="end">
-          <DropdownMenu.Label>Filter by Month</DropdownMenu.Label>
-          <DropdownMenu.Separator />
-          <DropdownMenu.RadioGroup bind:value={selectedFilterMonth}>
-            <DropdownMenu.RadioItem value="all">All Expenses</DropdownMenu.RadioItem>
-            <DropdownMenu.RadioItem value={currentMonth.toString()}>
-              {new Date(currentYear, currentMonth).toLocaleDateString("de-CH", { month: "long" })}
-            </DropdownMenu.RadioItem>
-            <DropdownMenu.RadioItem
-              value={(currentMonth - 1 >= 0 ? currentMonth - 1 : 11).toString()}
+        </Popover.Trigger>
+        <Popover.Content class="w-auto p-4" align="end">
+          <div class="flex flex-col gap-4">
+            <div class="flex gap-2">
+              <Select.Root
+                selected={{ value: selectedFilterMonth?.toString() }}
+                onSelectedChange={(selected) => {
+                  selectedFilterMonth = selected?.value ? parseInt(selected.value) : undefined;
+                }}
+              >
+                <Select.Trigger class="w-[140px]">
+                  <Select.Value placeholder="Month">
+                    {selectedMonthDisplay}
+                  </Select.Value>
+                </Select.Trigger>
+                <Select.Content>
+                  {#each Array(12) as _, i}
+                    <Select.Item
+                      value={i.toString()}
+                      label={new Date(2000, i, 1).toLocaleDateString("de-CH", { month: "long" })}
+                    >
+                      {new Date(2000, i, 1).toLocaleDateString("de-CH", { month: "long" })}
+                    </Select.Item>
+                  {/each}
+                </Select.Content>
+              </Select.Root>
+              <Select.Root
+                selected={{ value: selectedFilterYear?.toString() }}
+                onSelectedChange={(selected) => {
+                  selectedFilterYear = selected?.value ? parseInt(selected.value) : undefined;
+                }}
+              >
+                <Select.Trigger class="w-[100px]">
+                  <Select.Value placeholder="Year">
+                    {selectedYearDisplay}
+                  </Select.Value>
+                </Select.Trigger>
+                <Select.Content>
+                  {#each Array(10) as _, i}
+                    {@const year = currentYear - 5 + i}
+                    <Select.Item value={year.toString()} label={year.toString()}>
+                      {year}
+                    </Select.Item>
+                  {/each}
+                </Select.Content>
+              </Select.Root>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              class="w-full"
+              on:click={() => {
+                selectedFilterMonth = undefined;
+                selectedFilterYear = undefined;
+                filterDateOpen = false;
+              }}
             >
-              {new Date(
-                currentYear,
-                currentMonth - 1 >= 0 ? currentMonth - 1 : 11
-              ).toLocaleDateString("de-CH", { month: "long" })}
-            </DropdownMenu.RadioItem>
-          </DropdownMenu.RadioGroup>
-        </DropdownMenu.Content>
-      </DropdownMenu.Root>
+              Clear Filter
+            </Button>
+          </div>
+        </Popover.Content>
+      </Popover.Root>
     </div>
     {#if client.authStore.model && client.authStore.model.admin}
       <div class="flex gap-2">
@@ -1318,6 +1387,8 @@
   </Dialog.Content>
 </Dialog.Root>
 
+<CustomerManagementDialog bind:open={customerManagementDialogOpen} />
+
 <style>
   .file-input-wrapper {
     position: relative;
@@ -1326,20 +1397,5 @@
   }
   .file-input {
     display: none; /* Hide the actual file input */
-  }
-  .file-input-button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 10px;
-    background-color: var(--background);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    cursor: pointer;
-    width: 100%;
-    color: var(--foreground);
-  }
-  .file-input-button:hover {
-    background-color: var(--muted);
   }
 </style>

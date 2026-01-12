@@ -6,4 +6,4 @@ repos:
         entry: ./scripts/sk-check.sh
         language: script
         pass_filenames: false
-        stages: [commit]
+        stages: [pre-commit]

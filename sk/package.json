@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "vite dev",
-    "dev:backend": "cd ../pb && modd",
+    "dev:backend": "cd ../pb && air",
     "backend": "cd ../pb && ./spesr serve --publicDir=../sk/build",
     "build": "vite build",
     "build:backend": "cd ../pb && go build",

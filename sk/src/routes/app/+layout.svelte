@@ -25,6 +25,7 @@
   import * as Dialog from "$lib/components/ui/dialog";
   import { expenses } from "$lib/stores/data/expenses";
   import { getExpenseUnit } from "$lib/utils/expense.utils";
+  import CustomerManagementDialog from "$lib/components/customer-management-dialog.svelte";
 
   interface ParsedItem {
     value: string;
@@ -45,6 +46,7 @@
 
   let customerOpen = false;
   let customerValue = "";
+  let customerManagementDialogOpen = false;
 
   // map $customers id to value and name to label
   let parsedCustomers: ParsedItem[] = [];
@@ -304,48 +306,57 @@
         </Popover.Content>
       </Popover.Root>
 
-      <Popover.Root bind:open={customerOpen} let:ids>
-        <Popover.Trigger asChild let:builder>
-          <Button
-            builders={[builder]}
-            variant="outline"
-            role="combobox"
-            aria-expanded={customerOpen}
-            class="w-full justify-between"
-          >
-            {selectedCustomerValue}
-            <CaretSort class="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </Popover.Trigger>
-        <Popover.Content class="w-[200px] p-0">
-          <Command.Root>
-            <Command.Input placeholder="Search customers..." class="h-9" />
-            <Command.Empty>No customer found.</Command.Empty>
-            <Command.Group>
-              {#each parsedCustomers as customer}
-                <Command.Item
-                  value={customer.label}
-                  onSelect={() => {
-                    customerValue = customer.value;
-                    closeCustomerCombobox(ids.trigger);
-                  }}
-                >
-                  <Check
-                    class={cn(
-                      "mr-2 h-4 w-4",
-                      customerValue !== customer.value && "text-transparent"
-                    )}
-                  />
-                  <span class="flex-1">{customer.label}</span>
-                  {#if customer.frequency > 0}
-                    <span class="text-xs text-muted-foreground ml-2">{customer.frequency}x</span>
-                  {/if}
-                </Command.Item>
-              {/each}
-            </Command.Group>
-          </Command.Root>
-        </Popover.Content>
-      </Popover.Root>
+      <div class="flex gap-2">
+        <Popover.Root bind:open={customerOpen} let:ids>
+          <Popover.Trigger asChild let:builder>
+            <Button
+              builders={[builder]}
+              variant="outline"
+              role="combobox"
+              aria-expanded={customerOpen}
+              class="w-full justify-between"
+            >
+              {selectedCustomerValue}
+              <CaretSort class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </Popover.Trigger>
+          <Popover.Content class="w-[200px] p-0">
+            <Command.Root>
+              <Command.Input placeholder="Search customers..." class="h-9" />
+              <Command.Empty>No customer found.</Command.Empty>
+              <Command.Group>
+                {#each parsedCustomers as customer}
+                  <Command.Item
+                    value={customer.label}
+                    onSelect={() => {
+                      customerValue = customer.value;
+                      closeCustomerCombobox(ids.trigger);
+                    }}
+                  >
+                    <Check
+                      class={cn(
+                        "mr-2 h-4 w-4",
+                        customerValue !== customer.value && "text-transparent"
+                      )}
+                    />
+                    <span class="flex-1">{customer.label}</span>
+                    {#if customer.frequency > 0}
+                      <span class="text-xs text-muted-foreground ml-2">{customer.frequency}x</span>
+                    {/if}
+                  </Command.Item>
+                {/each}
+              </Command.Group>
+            </Command.Root>
+          </Popover.Content>
+        </Popover.Root>
+        <Button
+          type="button"
+          variant="outline"
+          on:click={() => (customerManagementDialogOpen = true)}
+        >
+          Manage
+        </Button>
+      </div>
 
       <Popover.Root bind:open={expenseTypeOpen} let:ids>
         <Popover.Trigger asChild let:builder>
@@ -433,6 +444,8 @@
     </form>
   </Dialog.Content>
 </Dialog.Root>
+
+<CustomerManagementDialog bind:open={customerManagementDialogOpen} />
 
 <style>
   .file-input-wrapper {
