@@ -17,9 +17,12 @@ RUN npm install --legacy-peer-deps
 RUN npm run build
 
 FROM alpine as runtime
+RUN addgroup -S spesr && adduser -S spesr -G spesr -h /app/spesr
 WORKDIR /app/spesr
 COPY --from=backend-builder /build/spesr /app/spesr/spesr
 COPY ./pb/pb_migrations ./pb_migrations
 COPY --from=ui-builder /build/build /app/spesr/pb_public
+RUN chown -R spesr:spesr /app/spesr
+USER spesr
 EXPOSE 8090
 CMD ["/app/spesr/spesr","serve", "--http", "0.0.0.0:8090"]
