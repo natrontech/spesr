@@ -6,7 +6,7 @@ set -e # exit on any non-zero status (error)
 # and then proceeds to execute the main "command" for this container
 
 # build if needed
-go mod tidy
+go mod download
 go build
 
 if [ ! -x "$(which modd)" ]; then

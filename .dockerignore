@@ -1,2 +1,5 @@
 venv/
 streamlit/
+sk/node_modules/
+sk/.svelte-kit/
+sk/build/

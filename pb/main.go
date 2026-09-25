@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,23 +10,13 @@ import (
 	"spesr/pkg/controller"
 	"spesr/pkg/env"
 
-	"github.com/labstack/echo/v5"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/plugins/jsvm"
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
-
-	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	"github.com/pocketbase/pocketbase/tools/hook"
 )
-
-// Dummy function to reference Tekton Types
-func dummy() {
-	var _ tektonv1.Pipeline
-	var _ tektonv1.PipelineRun
-	var _ tektonv1.Task
-	var _ tektonv1.TaskRun
-}
 
 // @title Flexmox API
 // @version 1.0
@@ -39,7 +30,6 @@ func dummy() {
 // @in header
 // @name Authorization
 func main() {
-	dummy()
 	app := pocketbase.New()
 
 	var publicDirFlag string
@@ -66,16 +56,20 @@ func main() {
 		Automigrate:  true,
 	})
 
-	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
-		// serves static files from the provided public dir (if exists)
-		e.Router.GET("/*", apis.StaticDirectoryHandler(os.DirFS(publicDirFlag), true))
-		return nil
+	app.OnServe().BindFunc(func(e *core.ServeEvent) error {
+		registerRoutes(e)
+		return e.Next()
 	})
 
-	// custom endpoints
-	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
-		registerRoutes(e)
-		return nil
+	// Register the SPA fallback after application routes.
+	app.OnServe().Bind(&hook.Handler[*core.ServeEvent]{
+		Func: func(e *core.ServeEvent) error {
+			if !e.Router.HasRoute(http.MethodGet, "/{path...}") {
+				e.Router.GET("/{path...}", apis.Static(os.DirFS(publicDirFlag), true))
+			}
+			return e.Next()
+		},
+		Priority: 999,
 	})
 
 	if err := app.Start(); err != nil {
@@ -98,18 +92,7 @@ func init() {
 
 // registerRoutes registers all routes for the application
 func registerRoutes(e *core.ServeEvent) {
-	routes := []struct {
-		Method      string
-		Path        string
-		Handler     echo.HandlerFunc
-		Middlewares []echo.MiddlewareFunc
-	}{
-		{"GET", "/pb/avatar/:name", func(c echo.Context) error { return getAvatarHandler(c) }, []echo.MiddlewareFunc{}},
-	}
-
-	for _, route := range routes {
-		e.Router.Add(route.Method, route.Path, route.Handler, route.Middlewares...)
-	}
+	e.Router.GET("/pb/avatar/{name}", getAvatarHandler)
 }
 
 // @Summary Get Avatar
@@ -121,7 +104,6 @@ func registerRoutes(e *core.ServeEvent) {
 // @Failure 400 {object} map[string]interface{} "Invalid request"
 // @Failure 500 {object} map[string]interface{} "Internal server error"
 // @Router /pb/avatar/{name} [get]
-func getAvatarHandler(c echo.Context) error {
-	name := c.PathParam("name")
-	return controller.GetAvatar(c, name)
+func getAvatarHandler(e *core.RequestEvent) error {
+	return controller.GetAvatar(e, e.Request.PathValue("name"))
 }

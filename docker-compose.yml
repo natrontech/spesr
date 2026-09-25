@@ -2,9 +2,9 @@ version: '3.5'
 
 services:
   pb:
-    image: golang:1.22-alpine
+    image: golang:1.27-alpine
     entrypoint: /app/pb/entrypoint.sh
-    command: "/app/pb/pocketbase serve --http 0.0.0.0:8090 --publicDir ../sk/build"
+    command: "/app/pb/spesr serve --http 0.0.0.0:8090 --publicDir ../sk/build"
     user: ${UID}:${GID}
     expose:
       - 8090
@@ -20,7 +20,7 @@ services:
     image: node:22-alpine
     user: ${UID}:${GID}
     # sveltekit build
-    command: sh -c "npx pnpm install && npm run build"
+    command: sh -c "npm ci --legacy-peer-deps && npm run build"
     volumes:
       - ${PWD}/sk:/app/sk
       - ${PWD}/pb:/app/pb

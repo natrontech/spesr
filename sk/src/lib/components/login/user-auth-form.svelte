@@ -43,7 +43,7 @@
 
   async function getAuthMethods() {
     const response = await client.collection("users").listAuthMethods();
-    authProviders = response.authProviders;
+    authProviders = response.oauth2.providers;
   }
 
   onMount(() => {
@@ -80,7 +80,9 @@
 
           formData.append("name", meta.name);
 
-          await client.collection("users").update(client.authStore.model?.id, formData);
+          const userId = client.authStore.model?.id;
+          if (!userId) throw new Error("Missing authenticated user");
+          await client.collection("users").update(userId, formData);
         }
 
         toast.success("Logged in successfully!");
@@ -131,7 +133,7 @@
   {#if authProviders?.length > 0}
     <div class="relative">
       <div class="absolute inset-0 flex items-center">
-        <span class="w-full border-t" />
+        <span class="w-full border-t"></span>
       </div>
       <div class="relative flex justify-center text-xs uppercase">
         <span class="bg-background px-2 text-muted-foreground"> Or continue with </span>

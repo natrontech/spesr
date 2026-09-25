@@ -198,7 +198,12 @@
     formData.append("description", description);
     formData.append("amount", amount.toString());
     formData.append("company_credit_card", companyCreditCard.toString());
-    formData.append("user", client.authStore.model?.id);
+    const userId = client.authStore.model?.id;
+    if (!userId) {
+      toast.error("Please log in again.");
+      return;
+    }
+    formData.append("user", userId);
 
     await client
       .collection("expenses")

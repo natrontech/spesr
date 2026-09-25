@@ -15,7 +15,7 @@ jobs:
         working-directory: pb
     strategy:
       matrix:
-        goVer: [1.22]
+        goVer: [1.27]
 
     steps:
       - name: Set up Go ${{ matrix.goVer }}
@@ -29,8 +29,8 @@ jobs:
 
       - name: Get dependencies
         run: |
-          go get -v -t -d ./...
-          go mod vendor
+          go mod download
+          go mod verify
 
       - name: Test
         run: |
@@ -49,8 +49,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
+        run: npm ci --legacy-peer-deps
       - name: Lint
         run: npm run lint
 
@@ -63,8 +65,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
+        run: npm ci --legacy-peer-deps
       - name: Check
         run: npm run check
 
@@ -77,7 +81,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
+        run: npm ci --legacy-peer-deps
       - name: Build
         run: npm run build
