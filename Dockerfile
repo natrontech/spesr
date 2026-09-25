@@ -1,22 +1,20 @@
-FROM golang:1.22-alpine AS backend-builder
+FROM golang:1.27-alpine AS backend-builder
 WORKDIR /build
 COPY pb/go.mod pb/go.sum pb/main.go ./
 COPY pb/pkg ./pkg
 RUN apk --no-cache add upx make git gcc libtool musl-dev ca-certificates dumb-init \
-  && go mod tidy \
+  && go mod download \
   && CGO_ENABLED=0 go build \
   && upx spesr
 
-FROM node:20-slim as ui-builder
+FROM node:22-slim AS ui-builder
 WORKDIR /build
 COPY ./sk/package*.json ./
-RUN rm -rf ./node_modules
-RUN rm -rf ./build
 COPY ./sk .
-RUN npm install --legacy-peer-deps
+RUN npm ci --legacy-peer-deps
 RUN npm run build
 
-FROM alpine as runtime
+FROM alpine AS runtime
 RUN addgroup -S spesr && adduser -S spesr -G spesr -h /app/spesr
 WORKDIR /app/spesr
 COPY --from=backend-builder /build/spesr /app/spesr/spesr

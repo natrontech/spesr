@@ -14,7 +14,7 @@
   class="container relative h-full flex-col items-center justify-center grid lg:max-w-none lg:grid-cols-2 lg:px-0 w-full"
 >
   <div class="relative hidden h-full flex-col bg-muted p-10 text-white dark:border-r lg:flex">
-    <div class="absolute inset-0 bg-cover" style="background-image: url({Authentication});" />
+    <div class="absolute inset-0 bg-cover" style="background-image: url({Authentication});"></div>
     <div class="relative z-20 flex items-center text-lg font-medium">
       <!-- <Command class="mr-2 h-6 w-6" /> -->
       <img src={LogoWhite} alt="spesr logo" class="h-6 w-6 mr-2" />

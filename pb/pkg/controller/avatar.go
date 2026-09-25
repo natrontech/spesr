@@ -9,7 +9,7 @@ import (
 	"strconv"
 
 	"github.com/fogleman/gg"
-	"github.com/labstack/echo/v5"
+	"github.com/pocketbase/pocketbase/core"
 )
 
 func generateGradientAvatar(name string) ([]byte, error) {
@@ -57,7 +57,7 @@ func hexToByte(hexStr string) uint8 {
 	return uint8(val)
 }
 
-func GetAvatar(c echo.Context, name string) error {
+func GetAvatar(c *core.RequestEvent, name string) error {
 	img, err := generateGradientAvatar(name)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to generate avatar")

@@ -3,7 +3,7 @@
 ## Setup
 
 ```bash
-npx pnpm install # install dependencies
+npm ci --legacy-peer-deps # install the locked dependencies
 npm run build # compile frontend
 ```
 
