@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"spesr/pkg/controller"
-	"spesr/pkg/env"
 
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
@@ -84,10 +83,6 @@ func defaultPublicDir() string {
 	}
 
 	return filepath.Join(os.Args[0], "../pb_public")
-}
-
-func init() {
-	env.Init()
 }
 
 // registerRoutes registers all routes for the application
