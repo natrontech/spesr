@@ -4,8 +4,6 @@
 
   let className: string | undefined | null = undefined;
   export { className as class };
-
-  console.log(page.url.pathname);
 </script>
 
 <nav class={cn("", className)}>
