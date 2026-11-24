@@ -3,7 +3,7 @@ import { writable } from "svelte/store";
 import { goto } from "$app/navigation";
 import type { TypedPocketBase } from "./generated-types";
 import { toast } from "svelte-sonner";
-import { getBaseURL } from "$lib/utils/base";
+import { getBaseURL } from "#lib/utils/base.ts";
 
 // if localhost, use the default port then use http://localhost:8090 as the base URL if not use the current URL
 export const client = new PocketBase(getBaseURL()) as TypedPocketBase;

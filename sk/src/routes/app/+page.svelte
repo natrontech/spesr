@@ -1,29 +1,29 @@
 <script lang="ts">
-  import Button from "$lib/components/ui/button/button.svelte";
-  import { expenses } from "$lib/stores/data/expenses";
-  import * as AlertDialog from "$lib/components/ui/alert-dialog/index.js";
-  import { client } from "$lib/pocketbase";
-  import { updateDataStores, UpdateFilterEnum } from "$lib/stores/data/load";
+  import Button from "#lib/components/ui/button/button.svelte";
+  import { expenses } from "#lib/stores/data/expenses.ts";
+  import * as AlertDialog from "#lib/components/ui/alert-dialog/index.js";
+  import { client } from "#lib/pocketbase/index.ts";
+  import { updateDataStores, UpdateFilterEnum } from "#lib/stores/data/load.ts";
   import { toast } from "svelte-sonner";
   import { Lightbox } from "svelte-lightbox";
-  import { getFileUrl } from "$lib/utils/file.utils";
+  import { getFileUrl } from "#lib/utils/file.utils.ts";
   import { saveAs } from "file-saver";
   import Papa from "papaparse";
-  import * as Drawer from "$lib/components/ui/drawer/index.js";
+  import * as Drawer from "#lib/components/ui/drawer/index.js";
   import { writable } from "svelte/store";
-  import * as Table from "$lib/components/ui/table";
-  import { Input } from "$lib/components/ui/input";
+  import * as Table from "#lib/components/ui/table/index.ts";
+  import { Input } from "#lib/components/ui/input/index.ts";
   import {
     DateFormatter,
     getLocalTimeZone,
     parseDate,
     type DateValue
   } from "@internationalized/date";
-  import { customers } from "$lib/stores/data/customers";
-  import { expenseTypes } from "$lib/stores/data/expense_types";
-  import * as Dialog from "$lib/components/ui/dialog";
-  import { Label } from "$lib/components/ui/label";
-  import { Checkbox } from "$lib/components/ui/checkbox";
+  import { customers } from "#lib/stores/data/customers.ts";
+  import { expenseTypes } from "#lib/stores/data/expense_types.ts";
+  import * as Dialog from "#lib/components/ui/dialog/index.ts";
+  import { Label } from "#lib/components/ui/label/index.ts";
+  import { Checkbox } from "#lib/components/ui/checkbox/index.ts";
   import {
     Camera,
     Search,
@@ -37,23 +37,22 @@
     FileText,
     Download,
     Loader2
-  } from "lucide-svelte";
-  import { Card } from "$lib/components/ui/card";
-  import * as Popover from "$lib/components/ui/popover/index.js";
-  import * as Command from "$lib/components/ui/command/index.js";
-  import { cn } from "$lib/utils";
-  import { tick } from "svelte";
-  import { Calendar } from "$lib/components/ui/calendar/index.js";
-  import * as Select from "$lib/components/ui/select/index.js";
+  } from "@lucide/svelte";
+  import { Card } from "#lib/components/ui/card/index.ts";
+  import * as Popover from "#lib/components/ui/popover/index.js";
+  import * as Command from "#lib/components/ui/command/index.js";
+  import { cn } from "#lib/utils.ts";
+  import { Calendar } from "#lib/components/ui/calendar/index.js";
+  import * as Select from "#lib/components/ui/select/index.js";
   import { CaretSort } from "svelte-radix";
   // @ts-ignore
   import ExcelJS from "exceljs";
   import JSZip from "jszip";
-  import type { ExpensesResponseWithExpand } from "$lib/pocketbase/generated-types";
+  import type { ExpensesResponseWithExpand } from "#lib/pocketbase/generated-types.ts";
   // @ts-ignore
   import { jsPDF } from "jspdf";
-  import { getExpenseUnit, formatExpenseAmount } from "$lib/utils/expense.utils";
-  import CustomerManagementDialog from "$lib/components/customer-management-dialog.svelte";
+  import { getExpenseUnit, formatExpenseAmount } from "#lib/utils/expense.utils.ts";
+  import CustomerManagementDialog from "#lib/components/customer-management-dialog.svelte";
 
   interface Expense {
     collectionId: string;
@@ -74,13 +73,7 @@
   }
 
   type SortableField =
-    | "date"
-    | "amount"
-    | "customer"
-    | "type"
-    | "description"
-    | "company_credit_card"
-    | "user";
+    "date" | "amount" | "customer" | "type" | "description" | "company_credit_card" | "user";
 
   let tempExpenses: Expense[] = [];
   let searchQuery = "";
@@ -210,20 +203,6 @@
         // Fall back to overall frequency
         return b.frequency - a.frequency;
       });
-  }
-
-  function closeCustomerCombobox(triggerId: string) {
-    customerOpen = false;
-    tick().then(() => {
-      document.getElementById(triggerId)?.focus();
-    });
-  }
-
-  function closeExpenseTypeCombobox(triggerId: string) {
-    expenseTypeOpen = false;
-    tick().then(() => {
-      document.getElementById(triggerId)?.focus();
-    });
   }
 
   const sortFields: SortableField[] = [
@@ -757,82 +736,89 @@
 
 <div class="container mx-auto py-6 px-4">
   <div class="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
-    <div class="flex gap-2 w-full sm:w-auto">
+    <div class="flex flex-wrap gap-2 w-full sm:w-auto">
       <div class="relative w-full sm:w-auto sm:min-w-[300px]">
         <Search class="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input type="text" placeholder="Search expenses..." class="pl-8" bind:value={searchQuery} />
       </div>
-      <Button variant="outline" on:click={() => (customerManagementDialogOpen = true)}>
+      <Button variant="outline" onclick={() => (customerManagementDialogOpen = true)}>
         Manage Customers
       </Button>
       <Popover.Root bind:open={filterDateOpen}>
-        <Popover.Trigger asChild let:builder>
-          <Button
-            variant="outline"
-            builders={[builder]}
-            class={cn(
-              "w-[300px] justify-between text-left font-normal",
-              (selectedFilterMonth === undefined || selectedFilterYear === undefined) &&
-                "text-muted-foreground"
-            )}
-          >
-            <span class="flex items-center">
-              <CalendarIcon class="mr-2 h-4 w-4" />
-              {#if selectedFilterMonth !== undefined && selectedFilterYear !== undefined}
-                {new Date(selectedFilterYear, selectedFilterMonth, 1).toLocaleDateString("de-CH", {
-                  month: "long",
-                  year: "numeric"
-                })}
-              {:else}
-                All Expenses
-              {/if}
-            </span>
-            <ChevronDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
+        <Popover.Trigger>
+          {#snippet child({ props })}
+            <Button
+              variant="outline"
+              {...props}
+              class={cn(
+                "w-[300px] justify-between text-left font-normal",
+                (selectedFilterMonth === undefined || selectedFilterYear === undefined) &&
+                  "text-muted-foreground"
+              )}
+            >
+              <span class="flex items-center">
+                <CalendarIcon class="mr-2 h-4 w-4" />
+                {#if selectedFilterMonth !== undefined && selectedFilterYear !== undefined}
+                  {new Date(selectedFilterYear, selectedFilterMonth, 1).toLocaleDateString(
+                    "de-CH",
+                    {
+                      month: "long",
+                      year: "numeric"
+                    }
+                  )}
+                {:else}
+                  All Expenses
+                {/if}
+              </span>
+              <ChevronDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          {/snippet}
         </Popover.Trigger>
         <Popover.Content class="w-auto p-4" align="end">
           <div class="flex flex-col gap-4">
             <div class="flex gap-2">
               <Select.Root
-                selected={{ value: selectedFilterMonth?.toString() }}
-                onSelectedChange={(selected) => {
-                  selectedFilterMonth = selected?.value ? parseInt(selected.value) : undefined;
+                type="single"
+                value={selectedFilterMonth?.toString() ?? ""}
+                onValueChange={(value) => {
+                  selectedFilterMonth = value ? parseInt(value) : undefined;
                 }}
               >
                 <Select.Trigger class="w-[140px]">
-                  <Select.Value placeholder="Month">
-                    {selectedMonthDisplay}
-                  </Select.Value>
+                  {selectedMonthDisplay}
                 </Select.Trigger>
                 <Select.Content>
-                  {#each Array(12) as _, i}
-                    <Select.Item
-                      value={i.toString()}
-                      label={new Date(2000, i, 1).toLocaleDateString("de-CH", { month: "long" })}
-                    >
-                      {new Date(2000, i, 1).toLocaleDateString("de-CH", { month: "long" })}
-                    </Select.Item>
-                  {/each}
+                  <Select.Group>
+                    {#each Array(12) as _, i}
+                      <Select.Item
+                        value={i.toString()}
+                        label={new Date(2000, i, 1).toLocaleDateString("de-CH", { month: "long" })}
+                      >
+                        {new Date(2000, i, 1).toLocaleDateString("de-CH", { month: "long" })}
+                      </Select.Item>
+                    {/each}
+                  </Select.Group>
                 </Select.Content>
               </Select.Root>
               <Select.Root
-                selected={{ value: selectedFilterYear?.toString() }}
-                onSelectedChange={(selected) => {
-                  selectedFilterYear = selected?.value ? parseInt(selected.value) : undefined;
+                type="single"
+                value={selectedFilterYear?.toString() ?? ""}
+                onValueChange={(value) => {
+                  selectedFilterYear = value ? parseInt(value) : undefined;
                 }}
               >
                 <Select.Trigger class="w-[100px]">
-                  <Select.Value placeholder="Year">
-                    {selectedYearDisplay}
-                  </Select.Value>
+                  {selectedYearDisplay}
                 </Select.Trigger>
                 <Select.Content>
-                  {#each Array(10) as _, i}
-                    {@const year = currentYear - 5 + i}
-                    <Select.Item value={year.toString()} label={year.toString()}>
-                      {year}
-                    </Select.Item>
-                  {/each}
+                  <Select.Group>
+                    {#each Array(10) as _, i}
+                      {@const year = currentYear - 5 + i}
+                      <Select.Item value={year.toString()} label={year.toString()}>
+                        {year}
+                      </Select.Item>
+                    {/each}
+                  </Select.Group>
                 </Select.Content>
               </Select.Root>
             </div>
@@ -840,7 +826,7 @@
               variant="ghost"
               size="sm"
               class="w-full"
-              on:click={() => {
+              onclick={() => {
                 selectedFilterMonth = undefined;
                 selectedFilterYear = undefined;
                 filterDateOpen = false;
@@ -853,9 +839,9 @@
       </Popover.Root>
     </div>
     {#if client.authStore.model && client.authStore.model.admin}
-      <div class="flex gap-2">
-        <Button variant="outline" on:click={() => drawerOpen.set(true)}>Download CSV</Button>
-        <Button variant="outline" on:click={() => (summaryDialogOpen = true)}>
+      <div class="flex flex-wrap gap-2">
+        <Button variant="outline" onclick={() => drawerOpen.set(true)}>Download CSV</Button>
+        <Button variant="outline" onclick={() => (summaryDialogOpen = true)}>
           <FileText class="h-4 w-4 mr-2" />
           Generate PDF Summary
         </Button>
@@ -872,7 +858,10 @@
             <Table.Head class="min-w-[150px] cursor-pointer select-none hover:bg-muted/50">
               <button
                 class="flex items-center gap-1 w-full text-left"
-                on:click|stopPropagation={() => handleSort(field)}
+                onclick={(event) => {
+                  event.stopPropagation();
+                  handleSort(field);
+                }}
               >
                 <span class="capitalize">{field.replace(/_/g, " ")}</span>
                 {#if sortField === field}
@@ -899,20 +888,22 @@
             <Table.Cell>{expense.date}</Table.Cell>
             <Table.Cell>{expense.type}</Table.Cell>
             <Table.Cell>{expense.description}</Table.Cell>
-            <Table.Cell class="text-right font-medium"
-              >{formatExpenseAmount(expense.amount, expense.type)}</Table.Cell
-            >
+            <Table.Cell class="text-right font-medium">
+              {formatExpenseAmount(expense.amount, expense.type)}
+            </Table.Cell>
             <Table.Cell>
               {#if expense.company_credit_card}
                 <span
                   class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 text-xs px-2 py-0.5 rounded"
-                  >Company Card</span
                 >
+                  Company Card
+                </span>
               {:else}
                 <span
                   class="bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-100 text-xs px-2 py-0.5 rounded"
-                  >Self Paid</span
                 >
+                  Self Paid
+                </span>
               {/if}
             </Table.Cell>
             {#if client.authStore.model?.admin}
@@ -947,10 +938,10 @@
                     {/if}
                   </div>
                 {/if}
-                <Button variant="ghost" size="icon" on:click={() => handleEditClick(expense)}>
+                <Button variant="ghost" size="icon" onclick={() => handleEditClick(expense)}>
                   <Edit2 class="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon" on:click={() => handleDeleteClick(expense)}>
+                <Button variant="ghost" size="icon" onclick={() => handleDeleteClick(expense)}>
                   <Trash2 class="h-4 w-4" />
                 </Button>
               </div>
@@ -976,13 +967,15 @@
             {#if expense.company_credit_card}
               <span
                 class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 text-xs px-2 py-0.5 rounded"
-                >Company Card</span
               >
+                Company Card
+              </span>
             {:else}
               <span
                 class="bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-100 text-xs px-2 py-0.5 rounded"
-                >Self Paid</span
               >
+                Self Paid
+              </span>
             {/if}
           </div>
         </div>
@@ -1034,10 +1027,10 @@
         {/if}
 
         <div class="flex justify-end gap-2">
-          <Button variant="ghost" size="icon" on:click={() => handleEditClick(expense)}>
+          <Button variant="ghost" size="icon" onclick={() => handleEditClick(expense)}>
             <Edit2 class="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" on:click={() => handleDeleteClick(expense)}>
+          <Button variant="ghost" size="icon" onclick={() => handleDeleteClick(expense)}>
             <Trash2 class="h-4 w-4" />
           </Button>
         </div>
@@ -1055,118 +1048,138 @@
     </Dialog.Header>
 
     {#if editingExpense}
-      <form class="grid gap-4" on:submit|preventDefault={handleEditSubmit}>
-        <Popover.Root bind:open={editDateOpen} let:ids>
-          <Popover.Trigger asChild let:builder>
-            <Button
-              variant="outline"
-              class={cn("w-full justify-start text-left font-normal")}
-              builders={[builder]}
-            >
-              <CalendarIcon class="mr-2 h-4 w-4" />
-              {editDateValue
-                ? editDateValue
-                    .toDate(getLocalTimeZone())
-                    .toLocaleDateString("de-CH", { dateStyle: "long" })
-                : "Select date"}
-            </Button>
+      <form
+        class="grid gap-4"
+        onsubmit={(event) => {
+          event.preventDefault();
+          handleEditSubmit();
+        }}
+      >
+        <Popover.Root bind:open={editDateOpen}>
+          <Popover.Trigger>
+            {#snippet child({ props })}
+              <Button
+                variant="outline"
+                class={cn("w-full justify-start text-left font-normal")}
+                {...props}
+              >
+                <CalendarIcon class="mr-2 h-4 w-4" />
+                {editDateValue
+                  ? editDateValue
+                      .toDate(getLocalTimeZone())
+                      .toLocaleDateString("de-CH", { dateStyle: "long" })
+                  : "Select date"}
+              </Button>
+            {/snippet}
           </Popover.Trigger>
           <Popover.Content class="w-auto p-0" align="center">
-            <Calendar bind:value={editDateValue} />
+            <Calendar type="single" bind:value={editDateValue} />
           </Popover.Content>
         </Popover.Root>
 
-        <Popover.Root bind:open={editCustomerOpen} let:ids>
-          <Popover.Trigger asChild let:builder>
-            <Button
-              builders={[builder]}
-              variant="outline"
-              role="combobox"
-              aria-expanded={editCustomerOpen}
-              class="w-full justify-between"
-            >
-              {editingExpense.customer || "Select customer"}
-              <CaretSort class="ml-2 h-4 w-4 shrink-0 opacity-50" />
-            </Button>
+        <Popover.Root bind:open={editCustomerOpen}>
+          <Popover.Trigger>
+            {#snippet child({ props })}
+              <Button
+                {...props}
+                variant="outline"
+                role="combobox"
+                aria-label="Customer"
+                aria-expanded={editCustomerOpen}
+                class="w-full justify-between"
+              >
+                {editingExpense?.customer || "Select customer"}
+                <CaretSort class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            {/snippet}
           </Popover.Trigger>
           <Popover.Content class="w-[200px] p-0">
             <Command.Root>
               <Command.Input placeholder="Search customers..." class="h-9" />
-              <Command.Empty>No customer found.</Command.Empty>
-              <Command.Group>
-                {#each parsedCustomers as customer}
-                  <Command.Item
-                    value={customer.label}
-                    onSelect={() => {
-                      if (editingExpense) {
-                        editingExpense.customer_id = customer.value;
-                        editingExpense.customer = customer.label;
-                        closeCustomerCombobox(ids.trigger);
-                      }
-                    }}
-                  >
-                    <Check
-                      class={cn(
-                        "mr-2 h-4 w-4",
-                        editingExpense.customer_id !== customer.value && "text-transparent"
-                      )}
-                    />
-                    <span class="flex-1">{customer.label}</span>
-                    {#if customer.frequency > 0}
-                      <span class="text-xs text-muted-foreground ml-2">{customer.frequency}x</span>
-                    {/if}
-                  </Command.Item>
-                {/each}
-              </Command.Group>
+              <Command.List>
+                <Command.Empty>No customer found.</Command.Empty>
+                <Command.Group>
+                  {#each parsedCustomers as customer}
+                    <Command.Item
+                      value={customer.label}
+                      onSelect={() => {
+                        if (editingExpense) {
+                          editingExpense.customer_id = customer.value;
+                          editingExpense.customer = customer.label;
+                          editCustomerOpen = false;
+                        }
+                      }}
+                    >
+                      <Check
+                        class={cn(
+                          "mr-2 h-4 w-4",
+                          editingExpense.customer_id !== customer.value && "text-transparent"
+                        )}
+                      />
+                      <span class="flex-1">{customer.label}</span>
+                      {#if customer.frequency > 0}
+                        <span class="text-xs text-muted-foreground ml-2">
+                          {customer.frequency}x
+                        </span>
+                      {/if}
+                    </Command.Item>
+                  {/each}
+                </Command.Group>
+              </Command.List>
             </Command.Root>
           </Popover.Content>
         </Popover.Root>
 
-        <Popover.Root bind:open={editExpenseTypeOpen} let:ids>
-          <Popover.Trigger asChild let:builder>
-            <Button
-              builders={[builder]}
-              variant="outline"
-              role="combobox"
-              aria-expanded={editExpenseTypeOpen}
-              class="w-full justify-between"
-            >
-              {editingExpense.type || "Select type"}
-              <CaretSort class="ml-2 h-4 w-4 shrink-0 opacity-50" />
-            </Button>
+        <Popover.Root bind:open={editExpenseTypeOpen}>
+          <Popover.Trigger>
+            {#snippet child({ props })}
+              <Button
+                {...props}
+                variant="outline"
+                role="combobox"
+                aria-label="Expense type"
+                aria-expanded={editExpenseTypeOpen}
+                class="w-full justify-between"
+              >
+                {editingExpense?.type || "Select type"}
+                <CaretSort class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            {/snippet}
           </Popover.Trigger>
           <Popover.Content class="w-[200px] p-0">
             <Command.Root>
               <Command.Input placeholder="Search expense type..." class="h-9" />
-              <Command.Empty>No expense type found.</Command.Empty>
-              <Command.Group>
-                {#each parsedExpenseTypes as expenseType}
-                  <Command.Item
-                    value={expenseType.label}
-                    onSelect={() => {
-                      if (editingExpense) {
-                        editingExpense.expense_type = expenseType.value;
-                        editingExpense.type = expenseType.label;
-                        editExpenseUnit = getExpenseUnit(expenseType.label);
-                        closeExpenseTypeCombobox(ids.trigger);
-                      }
-                    }}
-                  >
-                    <Check
-                      class={cn(
-                        "mr-2 h-4 w-4",
-                        editingExpense.expense_type !== expenseType.value && "text-transparent"
-                      )}
-                    />
-                    <span class="flex-1">{expenseType.label}</span>
-                    {#if expenseType.frequency > 0}
-                      <span class="text-xs text-muted-foreground ml-2"
-                        >{expenseType.frequency}x</span
-                      >
-                    {/if}
-                  </Command.Item>
-                {/each}
-              </Command.Group>
+              <Command.List>
+                <Command.Empty>No expense type found.</Command.Empty>
+                <Command.Group>
+                  {#each parsedExpenseTypes as expenseType}
+                    <Command.Item
+                      value={expenseType.label}
+                      onSelect={() => {
+                        if (editingExpense) {
+                          editingExpense.expense_type = expenseType.value;
+                          editingExpense.type = expenseType.label;
+                          editExpenseUnit = getExpenseUnit(expenseType.label);
+                          editExpenseTypeOpen = false;
+                        }
+                      }}
+                    >
+                      <Check
+                        class={cn(
+                          "mr-2 h-4 w-4",
+                          editingExpense.expense_type !== expenseType.value && "text-transparent"
+                        )}
+                      />
+                      <span class="flex-1">{expenseType.label}</span>
+                      {#if expenseType.frequency > 0}
+                        <span class="text-xs text-muted-foreground ml-2">
+                          {expenseType.frequency}x
+                        </span>
+                      {/if}
+                    </Command.Item>
+                  {/each}
+                </Command.Group>
+              </Command.List>
             </Command.Root>
           </Popover.Content>
         </Popover.Root>
@@ -1201,7 +1214,7 @@
               type="file"
               class="file-input"
               accept="image/*,application/pdf"
-              on:change={handleFileChange}
+              onchange={handleFileChange}
             />
             <label
               for="edit-picture"
@@ -1217,8 +1230,10 @@
           <Label for="edit-company-card">Company credit card used</Label>
         </div>
         <div class="flex justify-end gap-2">
-          <Dialog.Close asChild let:builder>
-            <Button variant="outline" builders={[builder]}>Cancel</Button>
+          <Dialog.Close>
+            {#snippet child({ props })}
+              <Button variant="outline" {...props}>Cancel</Button>
+            {/snippet}
           </Dialog.Close>
           <Button type="submit">Save changes</Button>
         </div>
@@ -1240,13 +1255,13 @@
     </AlertDialog.Header>
     <AlertDialog.Footer>
       <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-      <AlertDialog.Action on:click={confirmDelete}>Delete</AlertDialog.Action>
+      <AlertDialog.Action onclick={confirmDelete}>Delete</AlertDialog.Action>
     </AlertDialog.Footer>
   </AlertDialog.Content>
 </AlertDialog.Root>
 
 {#if client.authStore.model && client.authStore.model.admin}
-  <Drawer.Root open={$drawerOpen}>
+  <Drawer.Root bind:open={$drawerOpen}>
     <Drawer.Content>
       <div class="mx-auto w-full max-w-sm">
         <Drawer.Header>
@@ -1280,9 +1295,11 @@
           </div>
         </div>
         <Drawer.Footer>
-          <Button on:click={handleSubmit}>Download</Button>
-          <Drawer.Close asChild let:builder>
-            <Button builders={[builder]} variant="outline">Cancel</Button>
+          <Button onclick={handleSubmit}>Download</Button>
+          <Drawer.Close>
+            {#snippet child({ props })}
+              <Button {...props} variant="outline">Cancel</Button>
+            {/snippet}
           </Drawer.Close>
         </Drawer.Footer>
       </div>
@@ -1303,50 +1320,54 @@
       <div class="grid gap-2">
         <Label for="start-date">Start Date</Label>
         <Popover.Root bind:open={startDateOpen}>
-          <Popover.Trigger asChild let:builder>
-            <Button
-              builders={[builder]}
-              variant="outline"
-              class={cn(
-                "w-full justify-start text-left font-normal",
-                !summaryStartDate && "text-muted-foreground"
-              )}
-            >
-              <CalendarIcon class="mr-2 h-4 w-4" />
-              {#if summaryStartDate}
-                {df.format(summaryStartDate.toDate(getLocalTimeZone()))}
-              {:else}
-                <span>Pick a date</span>
-              {/if}
-            </Button>
+          <Popover.Trigger>
+            {#snippet child({ props })}
+              <Button
+                {...props}
+                variant="outline"
+                class={cn(
+                  "w-full justify-start text-left font-normal",
+                  !summaryStartDate && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon class="mr-2 h-4 w-4" />
+                {#if summaryStartDate}
+                  {df.format(summaryStartDate.toDate(getLocalTimeZone()))}
+                {:else}
+                  <span>Pick a date</span>
+                {/if}
+              </Button>
+            {/snippet}
           </Popover.Trigger>
           <Popover.Content class="w-auto p-0" align="start">
-            <Calendar bind:value={summaryStartDate} initialFocus />
+            <Calendar type="single" bind:value={summaryStartDate} />
           </Popover.Content>
         </Popover.Root>
       </div>
       <div class="grid gap-2">
         <Label for="end-date">End Date</Label>
         <Popover.Root bind:open={endDateOpen}>
-          <Popover.Trigger asChild let:builder>
-            <Button
-              builders={[builder]}
-              variant="outline"
-              class={cn(
-                "w-full justify-start text-left font-normal",
-                !summaryEndDate && "text-muted-foreground"
-              )}
-            >
-              <CalendarIcon class="mr-2 h-4 w-4" />
-              {#if summaryEndDate}
-                {df.format(summaryEndDate.toDate(getLocalTimeZone()))}
-              {:else}
-                <span>Pick a date</span>
-              {/if}
-            </Button>
+          <Popover.Trigger>
+            {#snippet child({ props })}
+              <Button
+                {...props}
+                variant="outline"
+                class={cn(
+                  "w-full justify-start text-left font-normal",
+                  !summaryEndDate && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon class="mr-2 h-4 w-4" />
+                {#if summaryEndDate}
+                  {df.format(summaryEndDate.toDate(getLocalTimeZone()))}
+                {:else}
+                  <span>Pick a date</span>
+                {/if}
+              </Button>
+            {/snippet}
           </Popover.Trigger>
           <Popover.Content class="w-auto p-0" align="start">
-            <Calendar bind:value={summaryEndDate} initialFocus />
+            <Calendar type="single" bind:value={summaryEndDate} />
           </Popover.Content>
         </Popover.Root>
       </div>
@@ -1369,12 +1390,12 @@
     <Dialog.Footer>
       <Button
         variant="outline"
-        on:click={() => (summaryDialogOpen = false)}
+        onclick={() => (summaryDialogOpen = false)}
         disabled={summaryGenerating}
       >
         Cancel
       </Button>
-      <Button on:click={generateSummary} disabled={summaryGenerating}>
+      <Button onclick={generateSummary} disabled={summaryGenerating}>
         {#if summaryGenerating}
           <Loader2 class="h-4 w-4 mr-2 animate-spin" />
           Generating...

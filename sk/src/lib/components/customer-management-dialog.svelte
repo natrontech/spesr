@@ -1,15 +1,15 @@
 <script lang="ts">
-  import * as Dialog from "$lib/components/ui/dialog";
-  import * as Table from "$lib/components/ui/table";
-  import { Button } from "$lib/components/ui/button";
-  import { Input } from "$lib/components/ui/input";
-  import { Label } from "$lib/components/ui/label";
-  import { customers } from "$lib/stores/data/customers";
-  import { client } from "$lib/pocketbase";
+  import * as Dialog from "#lib/components/ui/dialog/index.ts";
+  import * as Table from "#lib/components/ui/table/index.ts";
+  import { Button } from "#lib/components/ui/button/index.ts";
+  import { Input } from "#lib/components/ui/input/index.ts";
+  import { Label } from "#lib/components/ui/label/index.ts";
+  import { customers } from "#lib/stores/data/customers.ts";
+  import { client } from "#lib/pocketbase/index.ts";
   import { toast } from "svelte-sonner";
-  import { updateDataStores, UpdateFilterEnum } from "$lib/stores/data/load";
-  import { Edit2, Save, X, Search } from "lucide-svelte";
-  import type { CustomersResponse } from "$lib/pocketbase/generated-types";
+  import { updateDataStores, UpdateFilterEnum } from "#lib/stores/data/load.ts";
+  import { Edit2, Save, X, Search } from "@lucide/svelte";
+  import type { CustomersResponse } from "#lib/pocketbase/generated-types.ts";
 
   export let open = false;
 
@@ -92,13 +92,13 @@
             placeholder="Enter customer name"
             bind:value={newCustomerName}
             class="flex-1"
-            on:keydown={(e) => {
+            onkeydown={(e) => {
               if (e.key === "Enter") {
                 handleCreate();
               }
             }}
           />
-          <Button on:click={handleCreate} class="w-full sm:w-auto">Add</Button>
+          <Button onclick={handleCreate} class="w-full sm:w-auto">Add</Button>
         </div>
       </div>
 
@@ -143,7 +143,7 @@
                       {#if editingCustomerId === customer.id}
                         <Input
                           bind:value={editingCustomerName}
-                          on:keydown={(e) => {
+                          onkeydown={(e) => {
                             if (e.key === "Enter") {
                               handleUpdate(customer.id);
                             } else if (e.key === "Escape") {
@@ -163,7 +163,7 @@
                             variant="ghost"
                             size="icon"
                             class="h-9 w-9 sm:h-10 sm:w-10"
-                            on:click={() => handleUpdate(customer.id)}
+                            onclick={() => handleUpdate(customer.id)}
                           >
                             <Save class="h-4 w-4" />
                           </Button>
@@ -171,7 +171,7 @@
                             variant="ghost"
                             size="icon"
                             class="h-9 w-9 sm:h-10 sm:w-10"
-                            on:click={cancelEdit}
+                            onclick={cancelEdit}
                           >
                             <X class="h-4 w-4" />
                           </Button>
@@ -180,7 +180,7 @@
                             variant="ghost"
                             size="icon"
                             class="h-9 w-9 sm:h-10 sm:w-10"
-                            on:click={() => startEdit(customer)}
+                            onclick={() => startEdit(customer)}
                           >
                             <Edit2 class="h-4 w-4" />
                           </Button>
@@ -197,8 +197,10 @@
     </div>
 
     <Dialog.Footer class="flex-shrink-0 flex-col sm:flex-row gap-2 mt-4">
-      <Dialog.Close asChild let:builder>
-        <Button variant="outline" builders={[builder]} class="w-full sm:w-auto">Close</Button>
+      <Dialog.Close>
+        {#snippet child({ props })}
+          <Button variant="outline" {...props} class="w-full sm:w-auto">Close</Button>
+        {/snippet}
       </Dialog.Close>
     </Dialog.Footer>
   </Dialog.Content>

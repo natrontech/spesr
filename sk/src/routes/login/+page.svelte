@@ -1,9 +1,9 @@
 <script lang="ts">
-  import LogoWhite from "$lib/img/logo/logo_frame_white.png";
-  import LogoBlack from "$lib/img/logo/logo_frame.png";
-  import Authentication from "$lib/img/wallpapers/authentication.jpg";
-  import UserAuthForm from "$lib/components/login/user-auth-form.svelte";
-  import { site } from "$lib/config";
+  import LogoWhite from "#lib/img/logo/logo_frame_white.png";
+  import LogoBlack from "#lib/img/logo/logo_frame.png";
+  import Authentication from "#lib/img/wallpapers/authentication.jpg";
+  import UserAuthForm from "#lib/components/login/user-auth-form.svelte";
+  import { site } from "#lib/config.ts";
 </script>
 
 <div class="md:hidden hidden">

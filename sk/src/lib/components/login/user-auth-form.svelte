@@ -1,18 +1,19 @@
 <script lang="ts">
-  import Button from "$lib/components/ui/button/button.svelte";
+  import Button from "#lib/components/ui/button/button.svelte";
   import { Input } from "../ui/input";
-  import { cn } from "$lib/utils.js";
+  import { cn } from "#lib/utils.js";
   import { Label } from "../ui/label";
-  import { Github, LoaderCircle } from "lucide-svelte";
-  import { alertOnFailure } from "$lib/pocketbase/ui";
+  import { LoaderCircle } from "@lucide/svelte";
+  import { GithubLogo as Github } from "svelte-radix";
+  import { alertOnFailure } from "#lib/pocketbase/ui.ts";
   import type { AuthProviderInfo } from "pocketbase";
-  import { client, login } from "$lib/pocketbase";
+  import { client, login } from "#lib/pocketbase/index.ts";
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import { toast } from "svelte-sonner";
-  import { avatarUrlString } from "$lib/stores/avatar";
-  import { avatarUrl } from "$lib/utils/user.utils";
-  import { getBaseURL } from "$lib/utils/base";
+  import { avatarUrlString } from "#lib/stores/avatar.ts";
+  import { avatarUrl } from "#lib/utils/user.utils.ts";
+  import { getBaseURL } from "#lib/utils/base.ts";
 
   let className: string | undefined | null = undefined;
   export { className as class };
@@ -96,7 +97,12 @@
 </script>
 
 <div class={cn("grid gap-6", className)} {...$$restProps}>
-  <form on:submit|preventDefault={submit}>
+  <form
+    onsubmit={(event) => {
+      event.preventDefault();
+      submit();
+    }}
+  >
     <div class="grid gap-2">
       <div class="grid gap-1">
         <Label class="sr-only" for="email">Email</Label>
@@ -146,7 +152,7 @@
         variant="outline"
         type="button"
         disabled={isLoading}
-        on:click={() => {
+        onclick={() => {
           const temp = authProviders.find((provider) => provider.name === "github");
           if (temp) {
             handleProviderLogin(temp);
@@ -166,7 +172,7 @@
         variant="outline"
         type="button"
         disabled={isLoading}
-        on:click={() => {
+        onclick={() => {
           const temp = authProviders.find((provider) => provider.name === "google");
           if (temp) {
             handleProviderLogin(temp);
@@ -197,7 +203,7 @@
         variant="outline"
         type="button"
         disabled={isLoading}
-        on:click={() => {
+        onclick={() => {
           const temp = authProviders.find((provider) => provider.name === "microsoft");
           if (temp) {
             handleProviderLogin(temp);

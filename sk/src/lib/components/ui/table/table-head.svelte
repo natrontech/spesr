@@ -1,19 +1,23 @@
 <script lang="ts">
+  import { cn, type WithElementRef } from "#lib/utils.js";
   import type { HTMLThAttributes } from "svelte/elements";
-  import { cn } from "$lib/utils.js";
 
-  type $$Props = HTMLThAttributes;
-
-  let className: $$Props["class"] = undefined;
-  export { className as class };
+  let {
+    ref = $bindable(null),
+    class: className,
+    children,
+    ...restProps
+  }: WithElementRef<HTMLThAttributes> = $props();
 </script>
 
 <th
+  bind:this={ref}
+  data-slot="table-head"
   class={cn(
     "h-10 px-2 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
     className
   )}
-  {...$$restProps}
+  {...restProps}
 >
-  <slot />
+  {@render children?.()}
 </th>

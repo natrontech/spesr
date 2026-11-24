@@ -1,36 +1,36 @@
 <script lang="ts">
   import { DropdownMenu as DropdownMenuPrimitive } from "bits-ui";
-  // @ts-ignore
-  import DotFilled from "svelte-radix/DotFilled.svelte";
-  import { cn } from "$lib/utils.js";
+  import CheckIcon from "@lucide/svelte/icons/check";
+  import { cn, type WithoutChild } from "#lib/utils.js";
 
-  type $$Props = DropdownMenuPrimitive.RadioItemProps;
-  type $$Events = DropdownMenuPrimitive.RadioItemEvents;
-
-  let className: $$Props["class"] = undefined;
-  export let value: DropdownMenuPrimitive.RadioItemProps["value"];
-  export { className as class };
+  let {
+    ref = $bindable(null),
+    class: className,
+    children: childrenProp,
+    closeOnSelect = false,
+    ...restProps
+  }: WithoutChild<DropdownMenuPrimitive.RadioItemProps> = $props();
 </script>
 
 <DropdownMenuPrimitive.RadioItem
+  bind:ref
+  {closeOnSelect}
+  data-slot="dropdown-menu-radio-item"
   class={cn(
     "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none data-[disabled]:pointer-events-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground data-[disabled]:opacity-50",
     className
   )}
-  {value}
-  {...$$restProps}
-  on:click
-  on:keydown
-  on:focusin
-  on:focusout
-  on:pointerdown
-  on:pointerleave
-  on:pointermove
+  {...restProps}
 >
-  <span class="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-    <DropdownMenuPrimitive.RadioIndicator>
-      <DotFilled class="h-4 w-4 fill-current" />
-    </DropdownMenuPrimitive.RadioIndicator>
-  </span>
-  <slot />
+  {#snippet children({ checked })}
+    <span
+      class="absolute right-2 flex items-center justify-center pointer-events-none"
+      data-slot="dropdown-menu-radio-item-indicator"
+    >
+      {#if checked}
+        <CheckIcon />
+      {/if}
+    </span>
+    {@render childrenProp?.({ checked })}
+  {/snippet}
 </DropdownMenuPrimitive.RadioItem>

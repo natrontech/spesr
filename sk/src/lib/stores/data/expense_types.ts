@@ -1,4 +1,4 @@
-import type { ExpenseTypesResponse } from "$lib/pocketbase/generated-types";
+import type { ExpenseTypesResponse } from "#lib/pocketbase/generated-types.ts";
 import { writable } from "svelte/store";
 
 // Generic type for expandable responses

@@ -1,4 +1,4 @@
-import { client, currentUser } from "$lib/pocketbase";
+import { client, currentUser } from "#lib/pocketbase/index.ts";
 
 // client.authStore.loadFromCookie(document.cookie);
 client.authStore.onChange(() => {

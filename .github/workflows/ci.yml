@@ -3,8 +3,10 @@ on:
   push:
     branches: [main]
   pull_request:
-    # The branches below must be a subset of the branches above
-    branches: ["*"]
+    branches: ["**"]
+
+permissions:
+  contents: read
 
 jobs:
   go-build:
@@ -70,7 +72,7 @@ jobs:
         run: npm run check
 
   ui-build:
-    name: Frontend Build
+    name: Frontend Build and Browser Tests
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -84,3 +86,7 @@ jobs:
         run: npm ci --legacy-peer-deps
       - name: Build
         run: npm run build
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+      - name: Test
+        run: npm run test:e2e

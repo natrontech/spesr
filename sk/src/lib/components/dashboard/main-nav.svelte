@@ -1,11 +1,9 @@
 <script lang="ts">
-  import { cn } from "$lib/utils.js";
-  import { page } from "$app/stores";
+  import { cn } from "#lib/utils.js";
+  import { page } from "$app/state";
 
   let className: string | undefined | null = undefined;
   export { className as class };
-
-  console.log($page.url.pathname);
 </script>
 
 <nav class={cn("", className)}>
@@ -13,7 +11,7 @@
     href="/app/analytics"
     class={cn(
       "transition-colors active:text-foreground/80",
-      $page.url.pathname === "/app/analytics/" ? "text-foreground" : "text-foreground/60"
+      page.url.pathname === "/app/analytics/" ? "text-foreground" : "text-foreground/60"
     )}
   >
     Analytics
