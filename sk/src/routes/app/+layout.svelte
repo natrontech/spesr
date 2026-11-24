@@ -146,8 +146,7 @@
       : "CHF";
 
   let description = "";
-  let picture: string | null = null;
-  let pictureFile: File;
+  let pictureFile: File | undefined;
   let amount = 0;
   let companyCreditCard = false;
 
@@ -157,7 +156,6 @@
       const file = input.files[0];
       if (file.type === "application/pdf" || file.type.startsWith("image/")) {
         pictureFile = file;
-        picture = URL.createObjectURL(file);
       } else {
         toast.error("Please upload a PDF or image file.");
         input.value = "";
@@ -199,7 +197,7 @@
         customerValue = "";
         expenseTypeValue = "";
         description = "";
-        picture = null;
+        pictureFile = undefined;
         amount = 0;
         companyCreditCard = false;
 
@@ -423,13 +421,7 @@
       <div class="grid w-full items-center gap-1.5">
         <Label for="picture">Picture</Label>
         <div class="file-input-wrapper">
-          <input
-            id="picture"
-            type="file"
-            class="file-input"
-            bind:value={picture}
-            onchange={handleFileChange}
-          />
+          <input id="picture" type="file" class="file-input" onchange={handleFileChange} />
           <label for="picture" class="file-input-button">
             <Camera class="h-6 w-6 mr-2" /> Upload Picture
           </label>

@@ -69,6 +69,14 @@ test("expense controls remain usable", async ({ page }, testInfo) => {
   await expect(dialog.getByRole("combobox", { name: "Customer" })).toBeVisible();
   await dialog.getByRole("checkbox").check();
   await expect(dialog.getByRole("checkbox")).toBeChecked();
+  await dialog.locator('input[type="file"]').setInputFiles({
+    name: "receipt.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=",
+      "base64"
+    )
+  });
   await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(dialog).toBeHidden();
 
