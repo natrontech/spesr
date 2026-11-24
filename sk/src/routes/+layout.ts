@@ -1,5 +1,5 @@
-import { browser } from "$app/environment";
-import { client } from "$lib/pocketbase";
+import { browser } from "$app/env";
+import { client } from "#lib/pocketbase/index.ts";
 import { goto } from "$app/navigation";
 
 // turn off SSR - we're JAMstack here

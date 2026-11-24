@@ -1,23 +1,34 @@
+import adapter from "@sveltejs/adapter-static";
+
+import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
+import tailwindcss from "@tailwindcss/vite";
 import { sveltekit } from "@sveltejs/kit/vite";
 import type { UserConfig } from "vite";
 import fs from "fs";
 
-// detect if we're running inside docker and set the backend accordingly
-const pocketbase_url = fs.existsSync("/.dockerenv")
-  ? "http://pb:8090" // docker-to-docker
-  : "http://localhost:8090"; // localhost-to-localhost
+// Route backend requests to the Compose service when running inside Docker
+const pocketbase_url = fs.existsSync("/.dockerenv") ? "http://pb:8090" : "http://localhost:8090";
 
 const config: UserConfig = {
-  resolve: {
-    alias: {
-      "@": __dirname + "/src"
-    }
-  },
-  plugins: [sveltekit()],
+  resolve: { alias: { "@": import.meta.dirname + "/src" } },
+  plugins: [
+    tailwindcss(),
+    sveltekit({
+      preprocess: vitePreprocess(),
+      adapter: adapter({
+        fallback: "index.html" /* enable SPA mode */
+      }),
+
+      onwarn: (warning, handler) => {
+        if (warning.code.startsWith("a11y_")) return;
+        handler(warning);
+      }
+    })
+  ],
   server: {
     proxy: {
       "/api": pocketbase_url,
-      "/_": pocketbase_url
+      "^/_(?:/|$)": pocketbase_url
     },
     headers: {
       "Cross-Origin-Embedder-Policy": "require-corp",

@@ -1,4 +1,4 @@
-import { client } from "$lib/pocketbase";
+import { client } from "#lib/pocketbase/index.ts";
 import type { Writable } from "svelte/store";
 import { customers } from "./customers";
 import { expenseTypes } from "./expense_types";

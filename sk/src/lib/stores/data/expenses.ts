@@ -3,7 +3,7 @@ import type {
   ExpenseTypesResponse,
   ExpensesResponse,
   UsersResponse
-} from "$lib/pocketbase/generated-types";
+} from "#lib/pocketbase/generated-types.ts";
 import { writable } from "svelte/store";
 
 // Generic type for expandable responses

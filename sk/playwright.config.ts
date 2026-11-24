@@ -1,14 +1,20 @@
-import type { PlaywrightTestConfig } from "@playwright/test";
+import { defineConfig, devices } from "@playwright/test";
 
-const config: PlaywrightTestConfig = {
+export default defineConfig({
+  testDir: "./tests",
   use: {
-    headless: false,
-    // viewport: { width: 1280, height: 768 },
-    // video: "on-first-retry",
-    // make sure "npm run dev" is running for localhost:5173 to work
-    baseURL: "http://localhost:5173"
+    baseURL: "http://127.0.0.1:4173",
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
+    actionTimeout: 5000
   },
-  reporter: [["html"]]
-};
-
-export default config;
+  projects: [
+    { name: "desktop", use: devices["Desktop Chrome"] },
+    { name: "mobile", use: { ...devices["iPhone 13"], browserName: "chromium" } }
+  ],
+  webServer: {
+    command: "npm run preview -- --host 127.0.0.1 --port 4173",
+    url: "http://127.0.0.1:4173",
+    reuseExistingServer: false
+  }
+});

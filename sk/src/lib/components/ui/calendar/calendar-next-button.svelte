@@ -1,27 +1,37 @@
 <script lang="ts">
   import { Calendar as CalendarPrimitive } from "bits-ui";
-  import { buttonVariants } from "$lib/components/ui/button/index.js";
-  import { cn } from "$lib/utils.js";
-  import { ChevronRight } from "lucide-svelte";
+  import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
+  import { buttonVariants, type ButtonVariant } from "#lib/components/ui/button/index.js";
+  import { cn } from "#lib/utils.js";
 
-  type $$Props = CalendarPrimitive.NextButtonProps;
-  type $$Events = CalendarPrimitive.NextButtonEvents;
-
-  let className: $$Props["class"] = undefined;
-  export { className as class };
+  let {
+    ref = $bindable(null),
+    class: className,
+    children,
+    variant = "ghost",
+    ...restProps
+  }: CalendarPrimitive.NextButtonProps & {
+    variant?: ButtonVariant;
+  } = $props();
 </script>
 
+{#snippet Fallback()}
+  <ChevronRightIcon class={cn("cn-rtl-flip size-4", className)} />
+{/snippet}
+
 <CalendarPrimitive.NextButton
-  on:click
+  bind:ref
   class={cn(
-    buttonVariants({ variant: "outline" }),
-    "h-7 w-7 bg-transparent p-0 opacity-50 active:opacity-100",
+    buttonVariants({ variant }),
+    "size-(--cell-size) bg-transparent p-0 select-none disabled:opacity-50",
+    "rtl:rotate-180",
     className
   )}
-  {...$$restProps}
-  let:builder
+  {...restProps}
 >
-  <slot {builder}>
-    <ChevronRight class="h-4 w-4" />
-  </slot>
+  {#if children}
+    {@render children?.()}
+  {:else}
+    {@render Fallback()}
+  {/if}
 </CalendarPrimitive.NextButton>

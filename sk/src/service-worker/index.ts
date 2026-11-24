@@ -1,14 +1,15 @@
-/// <reference types="@sveltejs/kit" />
+import { version } from "$app/env";
+import { assets, immutable } from "$app/manifest";
+import { asset } from "$app/paths";
 
-// @ts-nocheck
-import { build, files, version } from "$service-worker";
+declare const self: ServiceWorkerGlobalScope;
 
 // Create a unique cache name for this deployment
 const CACHE = `cache-${version}`;
 
 const ASSETS = [
-  ...build, // the app itself
-  ...files // everything in `static`
+  ...immutable.map(({ path }) => new URL(path, self.registration.scope).pathname),
+  ...assets.map(({ path }) => asset(path))
 ];
 
 self.addEventListener("install", (event) => {
@@ -42,11 +43,11 @@ self.addEventListener("fetch", (event) => {
 
     // `build`/`files` can always be served from the cache
     if (ASSETS.includes(url.pathname)) {
-      return cache.match(url.pathname);
+      const cached = await cache.match(url.pathname);
+      if (cached) return cached;
     }
 
-    // for everything else, try the network first, but
-    // fall back to the cache if we're offline
+    // Prefer the network for resources that are not part of the build
     try {
       const response = await fetch(event.request);
 
@@ -56,7 +57,9 @@ self.addEventListener("fetch", (event) => {
 
       return response;
     } catch {
-      return cache.match(event.request);
+      const cached = await cache.match(event.request);
+      if (cached) return cached;
+      throw new Error("The requested resource is unavailable offline");
     }
   }
 

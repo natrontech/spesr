@@ -1,4 +1,4 @@
-import { getBaseURL } from "$lib/utils/base";
+import { getBaseURL } from "#lib/utils/base.ts";
 import { createFetchWithAuth } from "./custom-fetch";
 import type { paths } from "./generated-sdk";
 import createClient from "openapi-fetch";

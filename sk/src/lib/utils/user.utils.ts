@@ -1,4 +1,4 @@
-import { client } from "$lib/pocketbase";
+import { client } from "#lib/pocketbase/index.ts";
 
 export function avatarUrl(): string {
   if (client.authStore) {

@@ -1,31 +1,30 @@
 <script lang="ts">
-  import LogoLight from "$lib/img/logo/logo_frame.png";
-  import LogoDark from "$lib/img/logo/logo_frame_white.png";
-  import { site } from "$lib/config.js";
-  import { UserNav } from "$lib/components/dashboard";
+  import LogoLight from "#lib/img/logo/logo_frame.png";
+  import LogoDark from "#lib/img/logo/logo_frame_white.png";
+  import { site } from "#lib/config.js";
+  import { UserNav } from "#lib/components/dashboard/index.ts";
   import { mode, resetMode, setMode } from "mode-watcher";
-  import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
-  import { Button } from "$lib/components/ui/button/index.js";
-  import { Checkbox } from "$lib/components/ui/checkbox/index.js";
-  import { CalendarIcon, Camera, Moon, Plus, Sun } from "lucide-svelte";
-  import { Input } from "$lib/components/ui/input/index.js";
-  import { Label } from "$lib/components/ui/label/index.js";
-  import * as Popover from "$lib/components/ui/popover/index.js";
+  import * as DropdownMenu from "#lib/components/ui/dropdown-menu/index.js";
+  import { Button } from "#lib/components/ui/button/index.js";
+  import { Checkbox } from "#lib/components/ui/checkbox/index.js";
+  import { CalendarIcon, Camera, Moon, Plus, Sun } from "@lucide/svelte";
+  import { Input } from "#lib/components/ui/input/index.js";
+  import { Label } from "#lib/components/ui/label/index.js";
+  import * as Popover from "#lib/components/ui/popover/index.js";
   import { DateFormatter, type DateValue, getLocalTimeZone } from "@internationalized/date";
-  import { Calendar } from "$lib/components/ui/calendar/index.js";
-  import { cn } from "$lib/utils";
-  import * as Command from "$lib/components/ui/command";
-  import { tick } from "svelte";
+  import { Calendar } from "#lib/components/ui/calendar/index.js";
+  import { cn } from "#lib/utils.ts";
+  import * as Command from "#lib/components/ui/command/index.ts";
   import { CaretSort, Check } from "svelte-radix";
-  import { customers } from "$lib/stores/data/customers";
-  import { expenseTypes } from "$lib/stores/data/expense_types";
-  import { client } from "$lib/pocketbase";
+  import { customers } from "#lib/stores/data/customers.ts";
+  import { expenseTypes } from "#lib/stores/data/expense_types.ts";
+  import { client } from "#lib/pocketbase/index.ts";
   import { toast } from "svelte-sonner";
-  import { updateDataStores, UpdateFilterEnum } from "$lib/stores/data/load";
-  import * as Dialog from "$lib/components/ui/dialog";
-  import { expenses } from "$lib/stores/data/expenses";
-  import { getExpenseUnit } from "$lib/utils/expense.utils";
-  import CustomerManagementDialog from "$lib/components/customer-management-dialog.svelte";
+  import { updateDataStores, UpdateFilterEnum } from "#lib/stores/data/load.ts";
+  import * as Dialog from "#lib/components/ui/dialog/index.ts";
+  import { expenses } from "#lib/stores/data/expenses.ts";
+  import { getExpenseUnit } from "#lib/utils/expense.utils.ts";
+  import CustomerManagementDialog from "#lib/components/customer-management-dialog.svelte";
 
   interface ParsedItem {
     value: string;
@@ -134,13 +133,6 @@
   $: selectedCustomerValue =
     parsedCustomers.find((f) => f.value === customerValue)?.label ?? "Select a customer...";
 
-  function closeCustomerCombobox(triggerId: string) {
-    customerOpen = false;
-    tick().then(() => {
-      document.getElementById(triggerId)?.focus();
-    });
-  }
-
   let expenseTypeOpen = false;
   let expenseTypeValue = "";
 
@@ -152,13 +144,6 @@
     selectedExpenseTypeValue !== "Select an expense type..."
       ? getExpenseUnit(selectedExpenseTypeValue)
       : "CHF";
-
-  function closeExpenseTypeCombobox(triggerId: string) {
-    expenseTypeOpen = false;
-    tick().then(() => {
-      document.getElementById(triggerId)?.focus();
-    });
-  }
 
   let description = "";
   let picture: string | null = null;
@@ -237,7 +222,7 @@
   <div class="border-b">
     <div class="flex h-16 items-center px-8">
       <a class="relative z-20 flex items-center text-lg font-medium mr-6" href="/app">
-        {#if $mode === "light"}
+        {#if mode.current === "light"}
           <img src={LogoLight} alt="flexmox logo" class="h-6 w-6 mr-2" />
         {:else}
           <img src={LogoDark} alt="flexmox logo" class="h-6 w-6 mr-2" />
@@ -250,21 +235,23 @@
 
       <div class="ml-auto flex items-center space-x-4">
         <DropdownMenu.Root>
-          <DropdownMenu.Trigger asChild let:builder>
-            <Button builders={[builder]} variant="outline" size="icon">
-              <Sun
-                class="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0"
-              />
-              <Moon
-                class="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100"
-              />
-              <span class="sr-only">Toggle theme</span>
-            </Button>
+          <DropdownMenu.Trigger>
+            {#snippet child({ props })}
+              <Button {...props} variant="outline" size="icon">
+                <Sun
+                  class="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0"
+                />
+                <Moon
+                  class="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100"
+                />
+                <span class="sr-only">Toggle theme</span>
+              </Button>
+            {/snippet}
           </DropdownMenu.Trigger>
           <DropdownMenu.Content align="end">
-            <DropdownMenu.Item on:click={() => setMode("light")}>Light</DropdownMenu.Item>
-            <DropdownMenu.Item on:click={() => setMode("dark")}>Dark</DropdownMenu.Item>
-            <DropdownMenu.Item on:click={() => resetMode()}>System</DropdownMenu.Item>
+            <DropdownMenu.Item onclick={() => setMode("light")}>Light</DropdownMenu.Item>
+            <DropdownMenu.Item onclick={() => setMode("dark")}>Dark</DropdownMenu.Item>
+            <DropdownMenu.Item onclick={() => resetMode()}>System</DropdownMenu.Item>
           </DropdownMenu.Content>
         </DropdownMenu.Root>
         <UserNav />
@@ -278,11 +265,13 @@
 
 <Dialog.Root bind:open>
   <div class="fixed bottom-6 right-1/2 translate-x-1/2">
-    <Dialog.Trigger asChild let:builder>
-      <Button variant="default" size="lg" builders={[builder]}>
-        <Plus class="h-6 w-6" />
-        Add Expense
-      </Button>
+    <Dialog.Trigger>
+      {#snippet child({ props })}
+        <Button variant="default" size="lg" {...props}>
+          <Plus class="h-6 w-6" />
+          Add Expense
+        </Button>
+      {/snippet}
     </Dialog.Trigger>
   </div>
   <Dialog.Content>
@@ -291,117 +280,139 @@
       <Dialog.Description>Add a new expense to your project</Dialog.Description>
     </Dialog.Header>
 
-    <form class="grid items-start gap-4 px-4" on:submit|preventDefault={handleSubmit}>
-      <Popover.Root bind:open={dateOpen} let:ids>
-        <Popover.Trigger asChild let:builder>
-          <Button
-            variant="outline"
-            class={cn(
-              "w-full justify-start text-left font-normal",
-              !dateValue && "text-muted-foreground"
-            )}
-            builders={[builder]}
-          >
-            <CalendarIcon class="mr-2 h-4 w-4" />
-            {dateValue ? df.format(dateValue.toDate(getLocalTimeZone())) : "Pick a date"}
-          </Button>
+    <form
+      class="grid items-start gap-4 px-4"
+      onsubmit={(event) => {
+        event.preventDefault();
+        handleSubmit(event);
+      }}
+    >
+      <Popover.Root bind:open={dateOpen}>
+        <Popover.Trigger>
+          {#snippet child({ props })}
+            <Button
+              variant="outline"
+              class={cn(
+                "w-full justify-start text-left font-normal",
+                !dateValue && "text-muted-foreground"
+              )}
+              {...props}
+            >
+              <CalendarIcon class="mr-2 h-4 w-4" />
+              {dateValue ? df.format(dateValue.toDate(getLocalTimeZone())) : "Pick a date"}
+            </Button>
+          {/snippet}
         </Popover.Trigger>
         <Popover.Content class="w-auto p-0" align="center">
-          <Calendar bind:value={dateValue} />
+          <Calendar type="single" bind:value={dateValue} />
         </Popover.Content>
       </Popover.Root>
 
       <div class="flex gap-2">
-        <Popover.Root bind:open={customerOpen} let:ids>
-          <Popover.Trigger asChild let:builder>
-            <Button
-              builders={[builder]}
-              variant="outline"
-              role="combobox"
-              aria-expanded={customerOpen}
-              class="w-full justify-between"
-            >
-              {selectedCustomerValue}
-              <CaretSort class="ml-2 h-4 w-4 shrink-0 opacity-50" />
-            </Button>
+        <Popover.Root bind:open={customerOpen}>
+          <Popover.Trigger>
+            {#snippet child({ props })}
+              <Button
+                {...props}
+                variant="outline"
+                role="combobox"
+                aria-label="Customer"
+                aria-expanded={customerOpen}
+                class="w-full justify-between"
+              >
+                {selectedCustomerValue}
+                <CaretSort class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            {/snippet}
           </Popover.Trigger>
           <Popover.Content class="w-[200px] p-0">
             <Command.Root>
               <Command.Input placeholder="Search customers..." class="h-9" />
-              <Command.Empty>No customer found.</Command.Empty>
-              <Command.Group>
-                {#each parsedCustomers as customer}
-                  <Command.Item
-                    value={customer.label}
-                    onSelect={() => {
-                      customerValue = customer.value;
-                      closeCustomerCombobox(ids.trigger);
-                    }}
-                  >
-                    <Check
-                      class={cn(
-                        "mr-2 h-4 w-4",
-                        customerValue !== customer.value && "text-transparent"
-                      )}
-                    />
-                    <span class="flex-1">{customer.label}</span>
-                    {#if customer.frequency > 0}
-                      <span class="text-xs text-muted-foreground ml-2">{customer.frequency}x</span>
-                    {/if}
-                  </Command.Item>
-                {/each}
-              </Command.Group>
+              <Command.List>
+                <Command.Empty>No customer found.</Command.Empty>
+                <Command.Group>
+                  {#each parsedCustomers as customer}
+                    <Command.Item
+                      value={customer.label}
+                      onSelect={() => {
+                        customerValue = customer.value;
+                        customerOpen = false;
+                      }}
+                    >
+                      <Check
+                        class={cn(
+                          "mr-2 h-4 w-4",
+                          customerValue !== customer.value && "text-transparent"
+                        )}
+                      />
+                      <span class="flex-1">{customer.label}</span>
+                      {#if customer.frequency > 0}
+                        <span class="text-xs text-muted-foreground ml-2">
+                          {customer.frequency}x
+                        </span>
+                      {/if}
+                    </Command.Item>
+                  {/each}
+                </Command.Group>
+              </Command.List>
             </Command.Root>
           </Popover.Content>
         </Popover.Root>
         <Button
           type="button"
           variant="outline"
-          on:click={() => (customerManagementDialogOpen = true)}
+          onclick={() => (customerManagementDialogOpen = true)}
         >
           Manage
         </Button>
       </div>
 
-      <Popover.Root bind:open={expenseTypeOpen} let:ids>
-        <Popover.Trigger asChild let:builder>
-          <Button
-            builders={[builder]}
-            variant="outline"
-            role="combobox"
-            aria-expanded={expenseTypeOpen}
-            class="w-full justify-between"
-          >
-            {selectedExpenseTypeValue}
-            <CaretSort class="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
+      <Popover.Root bind:open={expenseTypeOpen}>
+        <Popover.Trigger>
+          {#snippet child({ props })}
+            <Button
+              {...props}
+              variant="outline"
+              role="combobox"
+              aria-label="Expense type"
+              aria-expanded={expenseTypeOpen}
+              class="w-full justify-between"
+            >
+              {selectedExpenseTypeValue}
+              <CaretSort class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          {/snippet}
         </Popover.Trigger>
         <Popover.Content class="w-[200px] p-0">
           <Command.Root>
             <Command.Input placeholder="Search expense type..." class="h-9" />
-            <Command.Empty>No expense type found.</Command.Empty>
-            <Command.Group>
-              {#each parsedExpenseTypes as expenseType}
-                <Command.Item
-                  value={expenseType.label}
-                  onSelect={() => {
-                    expenseTypeValue = expenseType.value;
-                    closeExpenseTypeCombobox(ids.trigger);
-                  }}
-                >
-                  <Check
-                    class={cn(
-                      "mr-2 h-4 w-4",
-                      expenseTypeValue !== expenseType.value && "text-transparent"
-                    )}
-                  />
-                  <span class="flex-1">{expenseType.label}</span>
-                  {#if expenseType.frequency > 0}
-                    <span class="text-xs text-muted-foreground ml-2">{expenseType.frequency}x</span>
-                  {/if}
-                </Command.Item>
-              {/each}
-            </Command.Group>
+            <Command.List>
+              <Command.Empty>No expense type found.</Command.Empty>
+              <Command.Group>
+                {#each parsedExpenseTypes as expenseType}
+                  <Command.Item
+                    value={expenseType.label}
+                    onSelect={() => {
+                      expenseTypeValue = expenseType.value;
+                      expenseTypeOpen = false;
+                    }}
+                  >
+                    <Check
+                      class={cn(
+                        "mr-2 h-4 w-4",
+                        expenseTypeValue !== expenseType.value && "text-transparent"
+                      )}
+                    />
+                    <span class="flex-1">{expenseType.label}</span>
+                    {#if expenseType.frequency > 0}
+                      <span class="text-xs text-muted-foreground ml-2">
+                        {expenseType.frequency}x
+                      </span>
+                    {/if}
+                  </Command.Item>
+                {/each}
+              </Command.Group>
+            </Command.List>
           </Command.Root>
         </Popover.Content>
       </Popover.Root>
@@ -417,7 +428,7 @@
             type="file"
             class="file-input"
             bind:value={picture}
-            on:change={handleFileChange}
+            onchange={handleFileChange}
           />
           <label for="picture" class="file-input-button">
             <Camera class="h-6 w-6 mr-2" /> Upload Picture
@@ -443,8 +454,10 @@
         </div>
       </div>
       <Button type="submit" class="w-full">Add Expense</Button>
-      <Dialog.Close asChild let:builder>
-        <Button variant="outline" builders={[builder]}>Cancel</Button>
+      <Dialog.Close>
+        {#snippet child({ props })}
+          <Button variant="outline" {...props}>Cancel</Button>
+        {/snippet}
       </Dialog.Close>
     </form>
   </Dialog.Content>

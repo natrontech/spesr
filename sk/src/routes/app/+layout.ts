@@ -1,4 +1,4 @@
-import { UpdateFilterEnum, updateDataStores } from "$lib/stores/data/load";
+import { UpdateFilterEnum, updateDataStores } from "#lib/stores/data/load.ts";
 
 export const load = async () => {
   // Perform the existing data store update

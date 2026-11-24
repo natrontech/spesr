@@ -1,44 +1,36 @@
 <script lang="ts">
   import { RangeCalendar as RangeCalendarPrimitive } from "bits-ui";
-  import { buttonVariants } from "$lib/components/ui/button/index.js";
-  import { cn } from "$lib/utils.js";
+  import { cn } from "#lib/utils.js";
 
-  type $$Props = RangeCalendarPrimitive.DayProps;
-  type $$Events = RangeCalendarPrimitive.DayEvents;
-
-  export let date: $$Props["date"];
-  export let month: $$Props["month"];
-  let className: $$Props["class"] = undefined;
-  export { className as class };
+  let {
+    ref = $bindable(null),
+    class: className,
+    ...restProps
+  }: RangeCalendarPrimitive.DayProps = $props();
 </script>
 
 <RangeCalendarPrimitive.Day
-  on:click
-  {date}
-  {month}
+  bind:ref
   class={cn(
-    buttonVariants({ variant: "ghost" }),
-    "h-8 w-8 p-0 font-normal data-[selected]:opacity-100",
-    // Today
-    "[&[data-today]:not([data-selected])]:bg-accent [&[data-today]:not([data-selected])]:text-accent-foreground",
-    // Selection Start
-    "data-[selection-start]:bg-primary data-[selection-start]:text-primary-foreground data-[selection-start]:active:bg-primary data-[selection-start]:active:text-primary-foreground data-[selection-start]:focus:bg-primary data-[selection-start]:focus:text-primary-foreground",
-    // Selection End
-    "data-[selection-end]:bg-primary data-[selection-end]:text-primary-foreground data-[selection-end]:active:bg-primary data-[selection-end]:active:text-primary-foreground data-[selection-end]:focus:bg-primary data-[selection-end]:focus:text-primary-foreground",
+    "flex size-(--cell-size) flex-col items-center justify-center gap-1 rounded-(--cell-radius) p-0 leading-none font-normal whitespace-nowrap select-none",
+    "not-data-selected:hover:bg-accent/50 not-data-selected:hover:text-accent-foreground",
+    "data-[range-middle]:rounded-none [&[data-today]:not([data-selected])]:bg-accent [&[data-today]:not([data-selected])]:text-accent-foreground [&[data-today][data-disabled]]:text-muted-foreground",
+    // range Start
+    "data-[range-start]:bg-primary data-[range-start]:text-primary-foreground data-[range-start]:hover:text-foreground",
+    // range End
+    "data-[range-end]:bg-primary data-[range-end]:text-primary-foreground data-[range-end]:hover:text-foreground",
     // Outside months
-    "data-[outside-month]:pointer-events-none data-[outside-month]:text-muted-foreground data-[outside-month]:opacity-50 [&[data-outside-month][data-selected]]:bg-accent/50 [&[data-outside-month][data-selected]]:text-muted-foreground [&[data-outside-month][data-selected]]:opacity-30",
+    "[&[data-outside-month]:not([data-selected])]:text-muted-foreground [&[data-outside-month]:not([data-selected])]:hover:text-accent-foreground",
     // Disabled
-    "data-[disabled]:text-muted-foreground data-[disabled]:opacity-50",
+    "data-[disabled]:pointer-events-none data-[disabled]:text-muted-foreground data-[disabled]:opacity-50",
     // Unavailable
-    "data-[unavailable]:text-destructive-foreground data-[unavailable]:line-through",
+    "data-[unavailable]:line-through",
+    "dark:data-[range-middle]:hover:bg-accent/0",
+    // focus
+    "focus:relative focus:border-ring focus:ring-ring/50",
+    // inner spans
+    "[&>span]:text-xs [&>span]:opacity-70",
     className
   )}
-  {...$$restProps}
-  let:disabled
-  let:unavailable
-  let:builder
->
-  <slot {disabled} {unavailable} {builder}>
-    {date.day}
-  </slot>
-</RangeCalendarPrimitive.Day>
+  {...restProps}
+/>

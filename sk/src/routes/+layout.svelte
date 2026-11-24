@@ -1,8 +1,8 @@
 <script context="module">
   import "../app.css";
   import { beforeNavigate } from "$app/navigation";
-  import { metadata } from "$lib/app/stores";
-  import { site } from "$lib/config";
+  import { metadata } from "#lib/app/stores.ts";
+  import { site } from "#lib/config.ts";
   import { Toaster } from "svelte-sonner";
 </script>
 

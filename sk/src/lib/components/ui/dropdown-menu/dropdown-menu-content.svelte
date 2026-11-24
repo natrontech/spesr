@@ -1,26 +1,31 @@
 <script lang="ts">
   import { DropdownMenu as DropdownMenuPrimitive } from "bits-ui";
-  import { cn, flyAndScale } from "$lib/utils.js";
+  import { cn, type WithoutChildrenOrChild } from "#lib/utils.js";
+  const DropdownMenuPortal = DropdownMenuPrimitive.Portal;
+  import type { ComponentProps } from "svelte";
 
-  type $$Props = DropdownMenuPrimitive.ContentProps;
-
-  let className: $$Props["class"] = undefined;
-  export let sideOffset: $$Props["sideOffset"] = 4;
-  export let transition: $$Props["transition"] = flyAndScale;
-  export let transitionConfig: $$Props["transitionConfig"] = undefined;
-  export { className as class };
+  let {
+    ref = $bindable(null),
+    sideOffset = 4,
+    align = "start",
+    portalProps,
+    class: className,
+    ...restProps
+  }: DropdownMenuPrimitive.ContentProps & {
+    portalProps?: WithoutChildrenOrChild<ComponentProps<typeof DropdownMenuPortal>>;
+  } = $props();
 </script>
 
-<DropdownMenuPrimitive.Content
-  {transition}
-  {transitionConfig}
-  {sideOffset}
-  class={cn(
-    "z-50 min-w-[8rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-md focus:outline-none",
-    className
-  )}
-  {...$$restProps}
-  on:keydown
->
-  <slot />
-</DropdownMenuPrimitive.Content>
+<DropdownMenuPortal {...portalProps}>
+  <DropdownMenuPrimitive.Content
+    bind:ref
+    data-slot="dropdown-menu-content"
+    {sideOffset}
+    {align}
+    class={cn(
+      "z-50 min-w-[8rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-md focus:outline-none",
+      className
+    )}
+    {...restProps}
+  />
+</DropdownMenuPortal>

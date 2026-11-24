@@ -33,14 +33,14 @@ export type AuthSystemFields<T = never> = {
 // Record types for each collection
 
 export enum HooksEventOptions {
-  "insert" = "insert",
-  "update" = "update",
-  "delete" = "delete"
+  insert = "insert",
+  update = "update",
+  delete = "delete"
 }
 
 export enum HooksActionTypeOptions {
-  "command" = "command",
-  "post" = "post"
+  command = "command",
+  post = "post"
 }
 export type HooksRecord = {
   collection: string;

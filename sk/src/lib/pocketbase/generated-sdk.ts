@@ -2105,10 +2105,7 @@ export interface components {
     };
     /** @enum {string} */
     "v1.PersistentVolumeAccessMode":
-      | "ReadWriteOnce"
-      | "ReadOnlyMany"
-      | "ReadWriteMany"
-      | "ReadWriteOncePod";
+      "ReadWriteOnce" | "ReadOnlyMany" | "ReadWriteMany" | "ReadWriteOncePod";
     "v1.PersistentVolumeClaim": {
       /** @description APIVersion defines the versioned schema of this representation of an object.
        *     Servers should convert recognized schemas to the latest internal value, and
@@ -2157,10 +2154,7 @@ export interface components {
     };
     /** @enum {string} */
     "v1.PersistentVolumeClaimConditionType":
-      | "Resizing"
-      | "FileSystemResizePending"
-      | "ModifyVolumeError"
-      | "ModifyingVolume";
+      "Resizing" | "FileSystemResizePending" | "ModifyVolumeError" | "ModifyingVolume";
     /** @enum {string} */
     "v1.PersistentVolumeClaimModifyVolumeStatus": "Pending" | "InProgress" | "Infeasible";
     /** @enum {string} */
