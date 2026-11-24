@@ -1,13 +1,10 @@
-# Use an NVIDIA CUDA base image with Python 3.12 support
-FROM nvidia/cuda:12.5.0-runtime-ubuntu22.04
+FROM python:3.15-slim
 
 # Set working directory
 WORKDIR /app
 
 # Install necessary system dependencies and Tesseract
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3-pip \
-    python3-dev \
     build-essential \
     curl \
     git \

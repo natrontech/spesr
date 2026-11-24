@@ -17,7 +17,7 @@ services:
       - ${PWD}/sk:/app/sk
       - ${HOME}/go/pkg:/go/pkg
   sk:
-    image: node:22-alpine
+    image: node:26-alpine
     user: ${UID}:${GID}
     # sveltekit build
     command: sh -c "npm ci --legacy-peer-deps && npm run build"
